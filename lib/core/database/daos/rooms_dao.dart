@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../app_database.dart';
 import '../enums.dart';
+import '../rules.dart';
 import '../tables/operations_tables.dart';
 import '../tables/property_tables.dart';
 
@@ -32,11 +33,8 @@ class RoomWithBeds {
   int get capacity => beds.length;
 }
 
-class RoomRuleException implements Exception {
-  RoomRuleException(this.message);
-  final String message;
-  @override
-  String toString() => message;
+class RoomRuleException extends RuleException {
+  RoomRuleException(super.message);
 }
 
 @DriftAccessor(tables: [Rooms, Beds, Allocations, Tenants, AuditLogs])
@@ -229,10 +227,11 @@ class RoomsDao extends DatabaseAccessor<AppDatabase> with _$RoomsDaoMixin {
       } else {
         await (update(beds)..where((b) => b.roomId.equals(roomId)))
             .write(BedsCompanion(isActive: const Value(false), updatedAt: Value(DateTime.now())));
+        final room = await (select(rooms)..where((r) => r.id.equals(roomId))).getSingle();
+        // Free the room number for reuse while keeping the archived record.
         await (update(rooms)..where((r) => r.id.equals(roomId))).write(RoomsCompanion(
           isActive: const Value(false),
-          roomNumber: Value('${(await (select(rooms)..where((r) => r.id.equals(roomId))).getSingle()).roomNumber}'
-              '~archived-$roomId'),
+          roomNumber: Value('${room.roomNumber}~archived-$roomId'),
           updatedAt: Value(DateTime.now()),
         ));
         await _log(roomId, 'archive', 'Room has history; archived instead of deleted');

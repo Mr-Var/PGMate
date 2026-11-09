@@ -53,6 +53,16 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
         AppSettingsCompanion.insert(key: key, value: value, updatedAt: Value(DateTime.now())),
       );
 
+  /// Next value of a named, gap-free counter (e.g. receipt numbers per year).
+  /// Must be called inside the caller's transaction.
+  Future<int> nextSequence(String name) async {
+    final key = 'seq_$name';
+    final current = int.tryParse(await getSetting(key) ?? '') ?? 0;
+    final next = current + 1;
+    await setSetting(key, '$next');
+    return next;
+  }
+
   Future<void> log(String entity, int? entityId, String action, [String? details]) =>
       into(auditLogs).insert(AuditLogsCompanion.insert(
         entity: entity,

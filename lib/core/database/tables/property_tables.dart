@@ -70,6 +70,7 @@ class Tenants extends Table {
   /// Path relative to the app's private documents directory.
   TextColumn get photoPath => text().nullable()();
   TextColumn get idProofType => text().nullable()();
+  TextColumn get idProofNumber => text().nullable()();
   TextColumn get idProofPath => text().nullable()();
   TextColumn get emergencyContactName => text().nullable()();
   TextColumn get emergencyContactPhone => text().nullable()();
@@ -85,6 +86,11 @@ class Tenants extends Table {
   DateTimeColumn get noticeDate => dateTime().nullable()();
   DateTimeColumn get expectedCheckoutDate => dateTime().nullable()();
   DateTimeColumn get checkoutDate => dateTime().nullable()();
+  /// Part of the deposit used to settle dues at checkout.
+  IntColumn get depositAdjustedPaise => integer().withDefault(const Constant(0))();
+  /// Part of the deposit returned to the tenant at checkout.
+  IntColumn get depositRefundedPaise => integer().withDefault(const Constant(0))();
+  TextColumn get checkoutNotes => text().nullable()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();

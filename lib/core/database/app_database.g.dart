@@ -1608,6 +1608,17 @@ class $TenantsTable extends Tenants with TableInfo<$TenantsTable, Tenant> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _idProofNumberMeta = const VerificationMeta(
+    'idProofNumber',
+  );
+  @override
+  late final GeneratedColumn<String> idProofNumber = GeneratedColumn<String>(
+    'id_proof_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _idProofPathMeta = const VerificationMeta(
     'idProofPath',
   );
@@ -1755,6 +1766,39 @@ class $TenantsTable extends Tenants with TableInfo<$TenantsTable, Tenant> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _depositAdjustedPaiseMeta =
+      const VerificationMeta('depositAdjustedPaise');
+  @override
+  late final GeneratedColumn<int> depositAdjustedPaise = GeneratedColumn<int>(
+    'deposit_adjusted_paise',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _depositRefundedPaiseMeta =
+      const VerificationMeta('depositRefundedPaise');
+  @override
+  late final GeneratedColumn<int> depositRefundedPaise = GeneratedColumn<int>(
+    'deposit_refunded_paise',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _checkoutNotesMeta = const VerificationMeta(
+    'checkoutNotes',
+  );
+  @override
+  late final GeneratedColumn<String> checkoutNotes = GeneratedColumn<String>(
+    'checkout_notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -1797,6 +1841,7 @@ class $TenantsTable extends Tenants with TableInfo<$TenantsTable, Tenant> {
     gender,
     photoPath,
     idProofType,
+    idProofNumber,
     idProofPath,
     emergencyContactName,
     emergencyContactPhone,
@@ -1810,6 +1855,9 @@ class $TenantsTable extends Tenants with TableInfo<$TenantsTable, Tenant> {
     noticeDate,
     expectedCheckoutDate,
     checkoutDate,
+    depositAdjustedPaise,
+    depositRefundedPaise,
+    checkoutNotes,
     notes,
     createdAt,
     updatedAt,
@@ -1863,6 +1911,15 @@ class $TenantsTable extends Tenants with TableInfo<$TenantsTable, Tenant> {
         idProofType.isAcceptableOrUnknown(
           data['id_proof_type']!,
           _idProofTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('id_proof_number')) {
+      context.handle(
+        _idProofNumberMeta,
+        idProofNumber.isAcceptableOrUnknown(
+          data['id_proof_number']!,
+          _idProofNumberMeta,
         ),
       );
     }
@@ -1974,6 +2031,33 @@ class $TenantsTable extends Tenants with TableInfo<$TenantsTable, Tenant> {
         ),
       );
     }
+    if (data.containsKey('deposit_adjusted_paise')) {
+      context.handle(
+        _depositAdjustedPaiseMeta,
+        depositAdjustedPaise.isAcceptableOrUnknown(
+          data['deposit_adjusted_paise']!,
+          _depositAdjustedPaiseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('deposit_refunded_paise')) {
+      context.handle(
+        _depositRefundedPaiseMeta,
+        depositRefundedPaise.isAcceptableOrUnknown(
+          data['deposit_refunded_paise']!,
+          _depositRefundedPaiseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('checkout_notes')) {
+      context.handle(
+        _checkoutNotesMeta,
+        checkoutNotes.isAcceptableOrUnknown(
+          data['checkout_notes']!,
+          _checkoutNotesMeta,
+        ),
+      );
+    }
     if (data.containsKey('notes')) {
       context.handle(
         _notesMeta,
@@ -2031,6 +2115,10 @@ class $TenantsTable extends Tenants with TableInfo<$TenantsTable, Tenant> {
         DriftSqlType.string,
         data['${effectivePrefix}id_proof_type'],
       ),
+      idProofNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id_proof_number'],
+      ),
       idProofPath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id_proof_path'],
@@ -2085,6 +2173,18 @@ class $TenantsTable extends Tenants with TableInfo<$TenantsTable, Tenant> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}checkout_date'],
       ),
+      depositAdjustedPaise: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deposit_adjusted_paise'],
+      )!,
+      depositRefundedPaise: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deposit_refunded_paise'],
+      )!,
+      checkoutNotes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}checkout_notes'],
+      ),
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
@@ -2121,6 +2221,7 @@ class Tenant extends DataClass implements Insertable<Tenant> {
   /// Path relative to the app's private documents directory.
   final String? photoPath;
   final String? idProofType;
+  final String? idProofNumber;
   final String? idProofPath;
   final String? emergencyContactName;
   final String? emergencyContactPhone;
@@ -2134,6 +2235,13 @@ class Tenant extends DataClass implements Insertable<Tenant> {
   final DateTime? noticeDate;
   final DateTime? expectedCheckoutDate;
   final DateTime? checkoutDate;
+
+  /// Part of the deposit used to settle dues at checkout.
+  final int depositAdjustedPaise;
+
+  /// Part of the deposit returned to the tenant at checkout.
+  final int depositRefundedPaise;
+  final String? checkoutNotes;
   final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -2145,6 +2253,7 @@ class Tenant extends DataClass implements Insertable<Tenant> {
     required this.gender,
     this.photoPath,
     this.idProofType,
+    this.idProofNumber,
     this.idProofPath,
     this.emergencyContactName,
     this.emergencyContactPhone,
@@ -2158,6 +2267,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
     this.noticeDate,
     this.expectedCheckoutDate,
     this.checkoutDate,
+    required this.depositAdjustedPaise,
+    required this.depositRefundedPaise,
+    this.checkoutNotes,
     this.notes,
     required this.createdAt,
     required this.updatedAt,
@@ -2181,6 +2293,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
     }
     if (!nullToAbsent || idProofType != null) {
       map['id_proof_type'] = Variable<String>(idProofType);
+    }
+    if (!nullToAbsent || idProofNumber != null) {
+      map['id_proof_number'] = Variable<String>(idProofNumber);
     }
     if (!nullToAbsent || idProofPath != null) {
       map['id_proof_path'] = Variable<String>(idProofPath);
@@ -2213,6 +2328,11 @@ class Tenant extends DataClass implements Insertable<Tenant> {
     if (!nullToAbsent || checkoutDate != null) {
       map['checkout_date'] = Variable<DateTime>(checkoutDate);
     }
+    map['deposit_adjusted_paise'] = Variable<int>(depositAdjustedPaise);
+    map['deposit_refunded_paise'] = Variable<int>(depositRefundedPaise);
+    if (!nullToAbsent || checkoutNotes != null) {
+      map['checkout_notes'] = Variable<String>(checkoutNotes);
+    }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
@@ -2236,6 +2356,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
       idProofType: idProofType == null && nullToAbsent
           ? const Value.absent()
           : Value(idProofType),
+      idProofNumber: idProofNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(idProofNumber),
       idProofPath: idProofPath == null && nullToAbsent
           ? const Value.absent()
           : Value(idProofPath),
@@ -2263,6 +2386,11 @@ class Tenant extends DataClass implements Insertable<Tenant> {
       checkoutDate: checkoutDate == null && nullToAbsent
           ? const Value.absent()
           : Value(checkoutDate),
+      depositAdjustedPaise: Value(depositAdjustedPaise),
+      depositRefundedPaise: Value(depositRefundedPaise),
+      checkoutNotes: checkoutNotes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(checkoutNotes),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
@@ -2286,6 +2414,7 @@ class Tenant extends DataClass implements Insertable<Tenant> {
       ),
       photoPath: serializer.fromJson<String?>(json['photoPath']),
       idProofType: serializer.fromJson<String?>(json['idProofType']),
+      idProofNumber: serializer.fromJson<String?>(json['idProofNumber']),
       idProofPath: serializer.fromJson<String?>(json['idProofPath']),
       emergencyContactName: serializer.fromJson<String?>(
         json['emergencyContactName'],
@@ -2309,6 +2438,13 @@ class Tenant extends DataClass implements Insertable<Tenant> {
         json['expectedCheckoutDate'],
       ),
       checkoutDate: serializer.fromJson<DateTime?>(json['checkoutDate']),
+      depositAdjustedPaise: serializer.fromJson<int>(
+        json['depositAdjustedPaise'],
+      ),
+      depositRefundedPaise: serializer.fromJson<int>(
+        json['depositRefundedPaise'],
+      ),
+      checkoutNotes: serializer.fromJson<String?>(json['checkoutNotes']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -2327,6 +2463,7 @@ class Tenant extends DataClass implements Insertable<Tenant> {
       ),
       'photoPath': serializer.toJson<String?>(photoPath),
       'idProofType': serializer.toJson<String?>(idProofType),
+      'idProofNumber': serializer.toJson<String?>(idProofNumber),
       'idProofPath': serializer.toJson<String?>(idProofPath),
       'emergencyContactName': serializer.toJson<String?>(emergencyContactName),
       'emergencyContactPhone': serializer.toJson<String?>(
@@ -2346,6 +2483,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
         expectedCheckoutDate,
       ),
       'checkoutDate': serializer.toJson<DateTime?>(checkoutDate),
+      'depositAdjustedPaise': serializer.toJson<int>(depositAdjustedPaise),
+      'depositRefundedPaise': serializer.toJson<int>(depositRefundedPaise),
+      'checkoutNotes': serializer.toJson<String?>(checkoutNotes),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -2360,6 +2500,7 @@ class Tenant extends DataClass implements Insertable<Tenant> {
     Gender? gender,
     Value<String?> photoPath = const Value.absent(),
     Value<String?> idProofType = const Value.absent(),
+    Value<String?> idProofNumber = const Value.absent(),
     Value<String?> idProofPath = const Value.absent(),
     Value<String?> emergencyContactName = const Value.absent(),
     Value<String?> emergencyContactPhone = const Value.absent(),
@@ -2373,6 +2514,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
     Value<DateTime?> noticeDate = const Value.absent(),
     Value<DateTime?> expectedCheckoutDate = const Value.absent(),
     Value<DateTime?> checkoutDate = const Value.absent(),
+    int? depositAdjustedPaise,
+    int? depositRefundedPaise,
+    Value<String?> checkoutNotes = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -2384,6 +2528,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
     gender: gender ?? this.gender,
     photoPath: photoPath.present ? photoPath.value : this.photoPath,
     idProofType: idProofType.present ? idProofType.value : this.idProofType,
+    idProofNumber: idProofNumber.present
+        ? idProofNumber.value
+        : this.idProofNumber,
     idProofPath: idProofPath.present ? idProofPath.value : this.idProofPath,
     emergencyContactName: emergencyContactName.present
         ? emergencyContactName.value
@@ -2403,6 +2550,11 @@ class Tenant extends DataClass implements Insertable<Tenant> {
         ? expectedCheckoutDate.value
         : this.expectedCheckoutDate,
     checkoutDate: checkoutDate.present ? checkoutDate.value : this.checkoutDate,
+    depositAdjustedPaise: depositAdjustedPaise ?? this.depositAdjustedPaise,
+    depositRefundedPaise: depositRefundedPaise ?? this.depositRefundedPaise,
+    checkoutNotes: checkoutNotes.present
+        ? checkoutNotes.value
+        : this.checkoutNotes,
     notes: notes.present ? notes.value : this.notes,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -2418,6 +2570,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
       idProofType: data.idProofType.present
           ? data.idProofType.value
           : this.idProofType,
+      idProofNumber: data.idProofNumber.present
+          ? data.idProofNumber.value
+          : this.idProofNumber,
       idProofPath: data.idProofPath.present
           ? data.idProofPath.value
           : this.idProofPath,
@@ -2455,6 +2610,15 @@ class Tenant extends DataClass implements Insertable<Tenant> {
       checkoutDate: data.checkoutDate.present
           ? data.checkoutDate.value
           : this.checkoutDate,
+      depositAdjustedPaise: data.depositAdjustedPaise.present
+          ? data.depositAdjustedPaise.value
+          : this.depositAdjustedPaise,
+      depositRefundedPaise: data.depositRefundedPaise.present
+          ? data.depositRefundedPaise.value
+          : this.depositRefundedPaise,
+      checkoutNotes: data.checkoutNotes.present
+          ? data.checkoutNotes.value
+          : this.checkoutNotes,
       notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -2471,6 +2635,7 @@ class Tenant extends DataClass implements Insertable<Tenant> {
           ..write('gender: $gender, ')
           ..write('photoPath: $photoPath, ')
           ..write('idProofType: $idProofType, ')
+          ..write('idProofNumber: $idProofNumber, ')
           ..write('idProofPath: $idProofPath, ')
           ..write('emergencyContactName: $emergencyContactName, ')
           ..write('emergencyContactPhone: $emergencyContactPhone, ')
@@ -2484,6 +2649,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
           ..write('noticeDate: $noticeDate, ')
           ..write('expectedCheckoutDate: $expectedCheckoutDate, ')
           ..write('checkoutDate: $checkoutDate, ')
+          ..write('depositAdjustedPaise: $depositAdjustedPaise, ')
+          ..write('depositRefundedPaise: $depositRefundedPaise, ')
+          ..write('checkoutNotes: $checkoutNotes, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -2500,6 +2668,7 @@ class Tenant extends DataClass implements Insertable<Tenant> {
     gender,
     photoPath,
     idProofType,
+    idProofNumber,
     idProofPath,
     emergencyContactName,
     emergencyContactPhone,
@@ -2513,6 +2682,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
     noticeDate,
     expectedCheckoutDate,
     checkoutDate,
+    depositAdjustedPaise,
+    depositRefundedPaise,
+    checkoutNotes,
     notes,
     createdAt,
     updatedAt,
@@ -2528,6 +2700,7 @@ class Tenant extends DataClass implements Insertable<Tenant> {
           other.gender == this.gender &&
           other.photoPath == this.photoPath &&
           other.idProofType == this.idProofType &&
+          other.idProofNumber == this.idProofNumber &&
           other.idProofPath == this.idProofPath &&
           other.emergencyContactName == this.emergencyContactName &&
           other.emergencyContactPhone == this.emergencyContactPhone &&
@@ -2541,6 +2714,9 @@ class Tenant extends DataClass implements Insertable<Tenant> {
           other.noticeDate == this.noticeDate &&
           other.expectedCheckoutDate == this.expectedCheckoutDate &&
           other.checkoutDate == this.checkoutDate &&
+          other.depositAdjustedPaise == this.depositAdjustedPaise &&
+          other.depositRefundedPaise == this.depositRefundedPaise &&
+          other.checkoutNotes == this.checkoutNotes &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -2554,6 +2730,7 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
   final Value<Gender> gender;
   final Value<String?> photoPath;
   final Value<String?> idProofType;
+  final Value<String?> idProofNumber;
   final Value<String?> idProofPath;
   final Value<String?> emergencyContactName;
   final Value<String?> emergencyContactPhone;
@@ -2567,6 +2744,9 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
   final Value<DateTime?> noticeDate;
   final Value<DateTime?> expectedCheckoutDate;
   final Value<DateTime?> checkoutDate;
+  final Value<int> depositAdjustedPaise;
+  final Value<int> depositRefundedPaise;
+  final Value<String?> checkoutNotes;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -2578,6 +2758,7 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     this.gender = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.idProofType = const Value.absent(),
+    this.idProofNumber = const Value.absent(),
     this.idProofPath = const Value.absent(),
     this.emergencyContactName = const Value.absent(),
     this.emergencyContactPhone = const Value.absent(),
@@ -2591,6 +2772,9 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     this.noticeDate = const Value.absent(),
     this.expectedCheckoutDate = const Value.absent(),
     this.checkoutDate = const Value.absent(),
+    this.depositAdjustedPaise = const Value.absent(),
+    this.depositRefundedPaise = const Value.absent(),
+    this.checkoutNotes = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -2603,6 +2787,7 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     required Gender gender,
     this.photoPath = const Value.absent(),
     this.idProofType = const Value.absent(),
+    this.idProofNumber = const Value.absent(),
     this.idProofPath = const Value.absent(),
     this.emergencyContactName = const Value.absent(),
     this.emergencyContactPhone = const Value.absent(),
@@ -2616,6 +2801,9 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     this.noticeDate = const Value.absent(),
     this.expectedCheckoutDate = const Value.absent(),
     this.checkoutDate = const Value.absent(),
+    this.depositAdjustedPaise = const Value.absent(),
+    this.depositRefundedPaise = const Value.absent(),
+    this.checkoutNotes = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -2633,6 +2821,7 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     Expression<String>? gender,
     Expression<String>? photoPath,
     Expression<String>? idProofType,
+    Expression<String>? idProofNumber,
     Expression<String>? idProofPath,
     Expression<String>? emergencyContactName,
     Expression<String>? emergencyContactPhone,
@@ -2646,6 +2835,9 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     Expression<DateTime>? noticeDate,
     Expression<DateTime>? expectedCheckoutDate,
     Expression<DateTime>? checkoutDate,
+    Expression<int>? depositAdjustedPaise,
+    Expression<int>? depositRefundedPaise,
+    Expression<String>? checkoutNotes,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -2658,6 +2850,7 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
       if (gender != null) 'gender': gender,
       if (photoPath != null) 'photo_path': photoPath,
       if (idProofType != null) 'id_proof_type': idProofType,
+      if (idProofNumber != null) 'id_proof_number': idProofNumber,
       if (idProofPath != null) 'id_proof_path': idProofPath,
       if (emergencyContactName != null)
         'emergency_contact_name': emergencyContactName,
@@ -2675,6 +2868,11 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
       if (expectedCheckoutDate != null)
         'expected_checkout_date': expectedCheckoutDate,
       if (checkoutDate != null) 'checkout_date': checkoutDate,
+      if (depositAdjustedPaise != null)
+        'deposit_adjusted_paise': depositAdjustedPaise,
+      if (depositRefundedPaise != null)
+        'deposit_refunded_paise': depositRefundedPaise,
+      if (checkoutNotes != null) 'checkout_notes': checkoutNotes,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -2689,6 +2887,7 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     Value<Gender>? gender,
     Value<String?>? photoPath,
     Value<String?>? idProofType,
+    Value<String?>? idProofNumber,
     Value<String?>? idProofPath,
     Value<String?>? emergencyContactName,
     Value<String?>? emergencyContactPhone,
@@ -2702,6 +2901,9 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     Value<DateTime?>? noticeDate,
     Value<DateTime?>? expectedCheckoutDate,
     Value<DateTime?>? checkoutDate,
+    Value<int>? depositAdjustedPaise,
+    Value<int>? depositRefundedPaise,
+    Value<String?>? checkoutNotes,
     Value<String?>? notes,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -2714,6 +2916,7 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
       gender: gender ?? this.gender,
       photoPath: photoPath ?? this.photoPath,
       idProofType: idProofType ?? this.idProofType,
+      idProofNumber: idProofNumber ?? this.idProofNumber,
       idProofPath: idProofPath ?? this.idProofPath,
       emergencyContactName: emergencyContactName ?? this.emergencyContactName,
       emergencyContactPhone:
@@ -2728,6 +2931,9 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
       noticeDate: noticeDate ?? this.noticeDate,
       expectedCheckoutDate: expectedCheckoutDate ?? this.expectedCheckoutDate,
       checkoutDate: checkoutDate ?? this.checkoutDate,
+      depositAdjustedPaise: depositAdjustedPaise ?? this.depositAdjustedPaise,
+      depositRefundedPaise: depositRefundedPaise ?? this.depositRefundedPaise,
+      checkoutNotes: checkoutNotes ?? this.checkoutNotes,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -2759,6 +2965,9 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     }
     if (idProofType.present) {
       map['id_proof_type'] = Variable<String>(idProofType.value);
+    }
+    if (idProofNumber.present) {
+      map['id_proof_number'] = Variable<String>(idProofNumber.value);
     }
     if (idProofPath.present) {
       map['id_proof_path'] = Variable<String>(idProofPath.value);
@@ -2807,6 +3016,15 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
     if (checkoutDate.present) {
       map['checkout_date'] = Variable<DateTime>(checkoutDate.value);
     }
+    if (depositAdjustedPaise.present) {
+      map['deposit_adjusted_paise'] = Variable<int>(depositAdjustedPaise.value);
+    }
+    if (depositRefundedPaise.present) {
+      map['deposit_refunded_paise'] = Variable<int>(depositRefundedPaise.value);
+    }
+    if (checkoutNotes.present) {
+      map['checkout_notes'] = Variable<String>(checkoutNotes.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -2829,6 +3047,7 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
           ..write('gender: $gender, ')
           ..write('photoPath: $photoPath, ')
           ..write('idProofType: $idProofType, ')
+          ..write('idProofNumber: $idProofNumber, ')
           ..write('idProofPath: $idProofPath, ')
           ..write('emergencyContactName: $emergencyContactName, ')
           ..write('emergencyContactPhone: $emergencyContactPhone, ')
@@ -2842,6 +3061,9 @@ class TenantsCompanion extends UpdateCompanion<Tenant> {
           ..write('noticeDate: $noticeDate, ')
           ..write('expectedCheckoutDate: $expectedCheckoutDate, ')
           ..write('checkoutDate: $checkoutDate, ')
+          ..write('depositAdjustedPaise: $depositAdjustedPaise, ')
+          ..write('depositRefundedPaise: $depositRefundedPaise, ')
+          ..write('checkoutNotes: $checkoutNotes, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -8912,6 +9134,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final DashboardDao dashboardDao = DashboardDao(this as AppDatabase);
   late final RoomsDao roomsDao = RoomsDao(this as AppDatabase);
   late final SettingsDao settingsDao = SettingsDao(this as AppDatabase);
+  late final TenantsDao tenantsDao = TenantsDao(this as AppDatabase);
+  late final BillingDao billingDao = BillingDao(this as AppDatabase);
+  late final OpsDao opsDao = OpsDao(this as AppDatabase);
+  late final ReportsDao reportsDao = ReportsDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -10104,6 +10330,7 @@ typedef $$TenantsTableCreateCompanionBuilder = TenantsCompanion Function({
   required Gender gender,
   Value<String?> photoPath,
   Value<String?> idProofType,
+  Value<String?> idProofNumber,
   Value<String?> idProofPath,
   Value<String?> emergencyContactName,
   Value<String?> emergencyContactPhone,
@@ -10117,6 +10344,9 @@ typedef $$TenantsTableCreateCompanionBuilder = TenantsCompanion Function({
   Value<DateTime?> noticeDate,
   Value<DateTime?> expectedCheckoutDate,
   Value<DateTime?> checkoutDate,
+  Value<int> depositAdjustedPaise,
+  Value<int> depositRefundedPaise,
+  Value<String?> checkoutNotes,
   Value<String?> notes,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -10129,6 +10359,7 @@ typedef $$TenantsTableUpdateCompanionBuilder = TenantsCompanion Function({
   Value<Gender> gender,
   Value<String?> photoPath,
   Value<String?> idProofType,
+  Value<String?> idProofNumber,
   Value<String?> idProofPath,
   Value<String?> emergencyContactName,
   Value<String?> emergencyContactPhone,
@@ -10142,6 +10373,9 @@ typedef $$TenantsTableUpdateCompanionBuilder = TenantsCompanion Function({
   Value<DateTime?> noticeDate,
   Value<DateTime?> expectedCheckoutDate,
   Value<DateTime?> checkoutDate,
+  Value<int> depositAdjustedPaise,
+  Value<int> depositRefundedPaise,
+  Value<String?> checkoutNotes,
   Value<String?> notes,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -10270,6 +10504,11 @@ class $$TenantsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get idProofNumber => $composableBuilder(
+    column: $table.idProofNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get idProofPath => $composableBuilder(
     column: $table.idProofPath,
     builder: (column) => ColumnFilters(column),
@@ -10333,6 +10572,21 @@ class $$TenantsTableFilterComposer
 
   ColumnFilters<DateTime> get checkoutDate => $composableBuilder(
     column: $table.checkoutDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get depositAdjustedPaise => $composableBuilder(
+    column: $table.depositAdjustedPaise,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get depositRefundedPaise => $composableBuilder(
+    column: $table.depositRefundedPaise,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get checkoutNotes => $composableBuilder(
+    column: $table.checkoutNotes,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10496,6 +10750,11 @@ class $$TenantsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get idProofNumber => $composableBuilder(
+    column: $table.idProofNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get idProofPath => $composableBuilder(
     column: $table.idProofPath,
     builder: (column) => ColumnOrderings(column),
@@ -10561,6 +10820,21 @@ class $$TenantsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get depositAdjustedPaise => $composableBuilder(
+    column: $table.depositAdjustedPaise,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get depositRefundedPaise => $composableBuilder(
+    column: $table.depositRefundedPaise,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get checkoutNotes => $composableBuilder(
+    column: $table.checkoutNotes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -10606,6 +10880,11 @@ class $$TenantsTableAnnotationComposer
 
   GeneratedColumn<String> get idProofType => $composableBuilder(
     column: $table.idProofType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get idProofNumber => $composableBuilder(
+    column: $table.idProofNumber,
     builder: (column) => column,
   );
 
@@ -10669,6 +10948,21 @@ class $$TenantsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get checkoutDate => $composableBuilder(
     column: $table.checkoutDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get depositAdjustedPaise => $composableBuilder(
+    column: $table.depositAdjustedPaise,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get depositRefundedPaise => $composableBuilder(
+    column: $table.depositRefundedPaise,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get checkoutNotes => $composableBuilder(
+    column: $table.checkoutNotes,
     builder: (column) => column,
   );
 
@@ -10822,6 +11116,7 @@ class $$TenantsTableTableManager
                 Value<Gender> gender = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<String?> idProofType = const Value.absent(),
+                Value<String?> idProofNumber = const Value.absent(),
                 Value<String?> idProofPath = const Value.absent(),
                 Value<String?> emergencyContactName = const Value.absent(),
                 Value<String?> emergencyContactPhone = const Value.absent(),
@@ -10835,6 +11130,9 @@ class $$TenantsTableTableManager
                 Value<DateTime?> noticeDate = const Value.absent(),
                 Value<DateTime?> expectedCheckoutDate = const Value.absent(),
                 Value<DateTime?> checkoutDate = const Value.absent(),
+                Value<int> depositAdjustedPaise = const Value.absent(),
+                Value<int> depositRefundedPaise = const Value.absent(),
+                Value<String?> checkoutNotes = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -10846,6 +11144,7 @@ class $$TenantsTableTableManager
                 gender: gender,
                 photoPath: photoPath,
                 idProofType: idProofType,
+                idProofNumber: idProofNumber,
                 idProofPath: idProofPath,
                 emergencyContactName: emergencyContactName,
                 emergencyContactPhone: emergencyContactPhone,
@@ -10859,6 +11158,9 @@ class $$TenantsTableTableManager
                 noticeDate: noticeDate,
                 expectedCheckoutDate: expectedCheckoutDate,
                 checkoutDate: checkoutDate,
+                depositAdjustedPaise: depositAdjustedPaise,
+                depositRefundedPaise: depositRefundedPaise,
+                checkoutNotes: checkoutNotes,
                 notes: notes,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -10872,6 +11174,7 @@ class $$TenantsTableTableManager
                 required Gender gender,
                 Value<String?> photoPath = const Value.absent(),
                 Value<String?> idProofType = const Value.absent(),
+                Value<String?> idProofNumber = const Value.absent(),
                 Value<String?> idProofPath = const Value.absent(),
                 Value<String?> emergencyContactName = const Value.absent(),
                 Value<String?> emergencyContactPhone = const Value.absent(),
@@ -10885,6 +11188,9 @@ class $$TenantsTableTableManager
                 Value<DateTime?> noticeDate = const Value.absent(),
                 Value<DateTime?> expectedCheckoutDate = const Value.absent(),
                 Value<DateTime?> checkoutDate = const Value.absent(),
+                Value<int> depositAdjustedPaise = const Value.absent(),
+                Value<int> depositRefundedPaise = const Value.absent(),
+                Value<String?> checkoutNotes = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -10896,6 +11202,7 @@ class $$TenantsTableTableManager
                 gender: gender,
                 photoPath: photoPath,
                 idProofType: idProofType,
+                idProofNumber: idProofNumber,
                 idProofPath: idProofPath,
                 emergencyContactName: emergencyContactName,
                 emergencyContactPhone: emergencyContactPhone,
@@ -10909,6 +11216,9 @@ class $$TenantsTableTableManager
                 noticeDate: noticeDate,
                 expectedCheckoutDate: expectedCheckoutDate,
                 checkoutDate: checkoutDate,
+                depositAdjustedPaise: depositAdjustedPaise,
+                depositRefundedPaise: depositRefundedPaise,
+                checkoutNotes: checkoutNotes,
                 notes: notes,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

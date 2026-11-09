@@ -10,7 +10,9 @@ enum Gender { male, female, other }
 
 enum InvoiceStatus { unpaid, partiallyPaid, paid, overdue, cancelled }
 
-enum PaymentMethod { cash, upi }
+/// [deposit] is an internal settlement from the security deposit at checkout
+/// and is never counted as cash collected. [bank] is used for expenses.
+enum PaymentMethod { cash, upi, bank, deposit }
 
 /// A payment is created as [pendingVerification] (UPI) or [confirmed] (cash).
 /// Only the owner can move a UPI payment to [confirmed].
@@ -59,6 +61,8 @@ extension PaymentMethodX on PaymentMethod {
   String get label => switch (this) {
         PaymentMethod.cash => 'Cash',
         PaymentMethod.upi => 'UPI',
+        PaymentMethod.bank => 'Bank transfer',
+        PaymentMethod.deposit => 'Deposit adjustment',
       };
 }
 
@@ -73,5 +77,49 @@ extension ExpenseCategoryX on ExpenseCategory {
         ExpenseCategory.cleaning => 'Cleaning',
         ExpenseCategory.repairs => 'Repairs',
         ExpenseCategory.miscellaneous => 'Miscellaneous',
+      };
+}
+
+extension InvoiceStatusX on InvoiceStatus {
+  String get label => switch (this) {
+        InvoiceStatus.unpaid => 'Unpaid',
+        InvoiceStatus.partiallyPaid => 'Partially paid',
+        InvoiceStatus.paid => 'Paid',
+        InvoiceStatus.overdue => 'Overdue',
+        InvoiceStatus.cancelled => 'Cancelled',
+      };
+}
+
+extension PaymentStatusX on PaymentStatus {
+  String get label => switch (this) {
+        PaymentStatus.pendingVerification => 'Awaiting verification',
+        PaymentStatus.confirmed => 'Confirmed',
+        PaymentStatus.rejected => 'Rejected',
+      };
+}
+
+extension ComplaintStatusX on ComplaintStatus {
+  String get label => switch (this) {
+        ComplaintStatus.open => 'Open',
+        ComplaintStatus.inProgress => 'In progress',
+        ComplaintStatus.resolved => 'Resolved',
+        ComplaintStatus.closed => 'Closed',
+      };
+}
+
+extension ComplaintPriorityX on ComplaintPriority {
+  String get label => switch (this) {
+        ComplaintPriority.low => 'Low',
+        ComplaintPriority.medium => 'Medium',
+        ComplaintPriority.high => 'High',
+        ComplaintPriority.urgent => 'Urgent',
+      };
+}
+
+extension GenderX on Gender {
+  String get label => switch (this) {
+        Gender.male => 'Male',
+        Gender.female => 'Female',
+        Gender.other => 'Other',
       };
 }

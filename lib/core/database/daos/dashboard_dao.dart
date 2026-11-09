@@ -158,8 +158,8 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
 
     // Confirmed payments and reversals received in the range (cash basis).
     final collected = await scalar(
-      'SELECT SUM(amount_paise) AS v FROM payments '
-      'WHERE status = ? AND payment_date >= ? AND payment_date < ?',
+      "SELECT SUM(amount_paise) AS v FROM payments "
+      "WHERE status = ? AND method <> 'deposit' AND payment_date >= ? AND payment_date < ?",
       [Variable.withString(PaymentStatus.confirmed.name), start, end],
     );
 
@@ -230,7 +230,7 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
                t.full_name AS title, p.receipt_number AS ref, p.amount_paise AS amount,
                p.payment_date AS d, p.created_at AS c
         FROM payments p JOIN tenants t ON t.id = p.tenant_id
-        WHERE p.status <> 'rejected'
+        WHERE p.status <> 'rejected' AND p.method <> 'deposit'
         UNION ALL
         SELECT 'expense', NULL, e.payment_method, NULL, e.title, e.category, -e.amount_paise,
                e.expense_date, e.created_at

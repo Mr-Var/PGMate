@@ -1,9 +1,17 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
+import 'daos/billing_dao.dart';
 import 'daos/dashboard_dao.dart';
+import 'daos/ops_dao.dart';
+import 'daos/reports_dao.dart';
 import 'daos/rooms_dao.dart';
 import 'daos/settings_dao.dart';
+import 'daos/tenants_dao.dart';
 import 'enums.dart';
 import 'tables/finance_tables.dart';
 import 'tables/operations_tables.dart';
@@ -28,14 +36,23 @@ part 'app_database.g.dart';
     AuditLogs,
     AppSettings,
   ],
-  daos: [DashboardDao, RoomsDao, SettingsDao],
+  daos: [DashboardDao, RoomsDao, SettingsDao, TenantsDao, BillingDao, OpsDao, ReportsDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   static const fileName = 'pg_manager';
 
-  static QueryExecutor _openConnection() => driftDatabase(name: fileName);
+  /// The live database file, in the app's private support directory.
+  static Future<File> databaseFile() async {
+    final dir = await getApplicationSupportDirectory();
+    return File(p.join(dir.path, '$fileName.sqlite'));
+  }
+
+  static QueryExecutor _openConnection() => driftDatabase(
+        name: fileName,
+        native: DriftNativeOptions(databasePath: () async => (await databaseFile()).path),
+      );
 
   /// Bump this and add a step in [migration] whenever the schema changes.
   @override
