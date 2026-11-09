@@ -96,7 +96,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.ink,
         body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -106,10 +106,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   Container(
                     width: 64,
                     height: 64,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(Radii.lg),
-                    ),
+                    decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(Radii.lg)),
                     child: const Icon(Icons.home_work_rounded, color: Colors.white, size: 32),
                   ),
                   const SizedBox(height: Gap.lg),

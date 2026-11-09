@@ -141,8 +141,10 @@ class PinPadState extends State<PinPad> with SingleTickerProviderStateMixin {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Material(
-        color: widget.dark ? Colors.white.withValues(alpha: 0.08) : AppColors.surface,
-        shape: const CircleBorder(),
+        color: widget.dark ? Colors.transparent : AppColors.surface,
+        shape: CircleBorder(
+          side: BorderSide(color: widget.dark ? Colors.white.withValues(alpha: 0.16) : AppColors.border),
+        ),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: () => _press(digit),

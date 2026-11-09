@@ -7,7 +7,6 @@ import '../../core/database/enums.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/money.dart';
-import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/form_kit.dart';
 import '../../shared/widgets/state_views.dart';
 import 'tenants_providers.dart';
@@ -126,14 +125,23 @@ class _TenantsScreenState extends ConsumerState<TenantsScreen> {
                     onAction: () => context.push('/tenants/new'),
                   );
                 }
-                return ListView.separated(
+                return ListView(
                   padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, 96),
-                  itemCount: items.length + 1,
-                  separatorBuilder: (_, i) => SizedBox(height: i == 0 ? Gap.md : Gap.sm),
-                  itemBuilder: (context, i) {
-                    if (i == 0) return _Summary(items: items);
-                    return TenantTile(item: items[i - 1]);
-                  },
+                  children: [
+                    _Summary(items: items),
+                    const SizedBox(height: Gap.md),
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          for (final (i, it) in items.indexed) ...[
+                            if (i > 0) const Divider(indent: 68),
+                            TenantTile(item: it),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -171,51 +179,53 @@ class TenantTile extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final tenant = item.tenant;
     final (color, bg) = statusColors(tenant.status);
-    return AppCard(
+    return InkWell(
       onTap: () => context.push('/tenants/${tenant.id}'),
-      padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
-      child: Row(
-        children: [
-          PersonAvatar(name: tenant.fullName, photoPath: tenant.photoPath),
-          const SizedBox(width: Gap.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
+        child: Row(
+          children: [
+            PersonAvatar(name: tenant.fullName, photoPath: tenant.photoPath),
+            const SizedBox(width: Gap.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tenant.fullName, style: t.titleSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  Text(
+                    [item.roomLabel ?? 'No bed assigned', tenant.phone].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: Gap.sm),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(tenant.fullName, style: t.titleSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(
-                  [item.roomLabel ?? 'No bed assigned', tenant.phone].join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+                if (item.duesPaise > 0)
+                  Text(
+                    Money.format(item.duesPaise),
+                    style: t.titleSmall?.copyWith(
+                      fontFeatures: AppTheme.tabular,
+                      color: item.overdue ? AppColors.danger : AppColors.textPrimary,
+                    ),
+                  )
+                else
+                  Text('Paid up', style: t.labelMedium?.copyWith(color: AppColors.success)),
+                const SizedBox(height: 4),
+                StatusPill(
+                  label: item.overdue ? 'Overdue' : tenant.status.label,
+                  color: item.overdue ? AppColors.danger : color,
+                  background: item.overdue ? AppColors.dangerSoft : bg,
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: Gap.sm),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (item.duesPaise > 0)
-                Text(
-                  Money.format(item.duesPaise),
-                  style: t.titleSmall?.copyWith(
-                    fontFeatures: AppTheme.tabular,
-                    color: item.overdue ? AppColors.danger : AppColors.textPrimary,
-                  ),
-                )
-              else
-                Text('Paid up', style: t.labelMedium?.copyWith(color: AppColors.success)),
-              const SizedBox(height: 4),
-              StatusPill(
-                label: item.overdue ? 'Overdue' : tenant.status.label,
-                color: item.overdue ? AppColors.danger : color,
-                background: item.overdue ? AppColors.dangerSoft : bg,
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

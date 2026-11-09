@@ -21,15 +21,19 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    await db.settingsDao.saveProfile(name: 'Audit PG', address: 'Somewhere 1', ownerName: 'Owner', ownerPhone: '9876543210');
+    await db.settingsDao.saveProfile(
+      name: 'Audit PG',
+      address: 'Somewhere 1',
+      ownerName: 'Owner',
+      ownerPhone: '9876543210',
+    );
     await db.roomsDao.addRoom(roomNumber: '101', floor: 1, rentPaise: 900000, bedCount: 4);
     await db.roomsDao.addRoom(roomNumber: '201', floor: 2, rentPaise: 1200000, bedCount: 2);
   });
   tearDown(() => db.close());
 
-  Future<List<int>> beds() async => (await (db.select(db.beds)..orderBy([(b) => OrderingTerm.asc(b.id)])).get())
-      .map((b) => b.id)
-      .toList();
+  Future<List<int>> beds() async =>
+      (await (db.select(db.beds)..orderBy([(b) => OrderingTerm.asc(b.id)])).get()).map((b) => b.id).toList();
 
   Future<int> tenant({
     String name = 'Arjun Mehta',
@@ -57,37 +61,58 @@ void main() {
     );
   }
 
-  Future<int> pay(int t, int amount, DateTime d, {PaymentMethod m = PaymentMethod.cash, String? utr, bool verified = true, int? invoiceId}) =>
-      db.billingDao.recordPayment(
-        PaymentInput(tenantId: t, amountPaise: amount, method: m, date: d, upiReference: utr, upiVerified: verified, invoiceId: invoiceId),
-      );
+  Future<int> pay(
+    int t,
+    int amount,
+    DateTime d, {
+    PaymentMethod m = PaymentMethod.cash,
+    String? utr,
+    bool verified = true,
+    int? invoiceId,
+  }) => db.billingDao.recordPayment(
+    PaymentInput(
+      tenantId: t,
+      amountPaise: amount,
+      method: m,
+      date: d,
+      upiReference: utr,
+      upiVerified: verified,
+      invoiceId: invoiceId,
+    ),
+  );
 
-  Future<List<RentInvoice>> invoices(int t) => (db.select(db.rentInvoices)
-        ..where((i) => i.tenantId.equals(t))
-        ..orderBy([(i) => OrderingTerm.asc(i.periodStart), (i) => OrderingTerm.asc(i.id)]))
-      .get();
+  Future<List<RentInvoice>> invoices(int t) =>
+      (db.select(db.rentInvoices)
+            ..where((i) => i.tenantId.equals(t))
+            ..orderBy([(i) => OrderingTerm.asc(i.periodStart), (i) => OrderingTerm.asc(i.id)]))
+          .get();
 
   /// Core ledger invariants that must hold after every operation.
   Future<void> invariants(String step) async {
     final inv = await db.select(db.rentInvoices).get();
     for (final i in inv) {
-      final row = await db.customSelect(
-        'SELECT COALESCE(SUM(amount_paise),0) AS s FROM payment_allocations WHERE invoice_id = ?',
-        variables: [Variable.withInt(i.id)],
-      ).getSingle();
+      final row = await db
+          .customSelect(
+            'SELECT COALESCE(SUM(amount_paise),0) AS s FROM payment_allocations WHERE invoice_id = ?',
+            variables: [Variable.withInt(i.id)],
+          )
+          .getSingle();
       expect(i.paidPaise, row.read<int>('s'), reason: '$step: invoice ${i.invoiceNumber} paid != allocations');
       if (i.status == InvoiceStatus.cancelled) {
         expect(i.paidPaise, 0, reason: '$step: cancelled ${i.invoiceNumber} still holds money');
       } else {
         expect(i.paidPaise, inInclusiveRange(0, i.totalPaise), reason: '$step: ${i.invoiceNumber} paid out of range');
-        expect(i.totalPaise, i.rentPaise + i.additionalChargesPaise - i.discountPaise,
-            reason: '$step: ${i.invoiceNumber} total != rent + extra - discount');
+        expect(
+          i.totalPaise,
+          i.rentPaise + i.additionalChargesPaise - i.discountPaise,
+          reason: '$step: ${i.invoiceNumber} total != rent + extra - discount',
+        );
       }
       final expected = i.status == InvoiceStatus.cancelled
           ? InvoiceStatus.cancelled
           : i.paidPaise >= i.totalPaise
-              ? InvoiceStatus.paid
-              : null;
+          ? InvoiceStatus.paid
+          : null;
       if (expected != null) expect(i.status, expected, reason: '$step: ${i.invoiceNumber} status');
     }
     for (final t in await db.select(db.tenants).get()) {
@@ -99,18 +124,22 @@ void main() {
         expect(due > 0 && c > 0, isFalse, reason: '$step: ${t.fullName} has dues $due AND credit $c');
       }
       // Payment allocations never exceed what the payment brought in.
-      final over = await db.customSelect(
-        '''SELECT p.receipt_number AS r FROM payments p
+      final over = await db
+          .customSelect(
+            '''SELECT p.receipt_number AS r FROM payments p
            WHERE p.tenant_id = ? AND p.kind = 'payment' AND p.amount_paise <
              COALESCE((SELECT SUM(amount_paise) FROM payment_allocations WHERE payment_id = p.id), 0)''',
-        variables: [Variable.withInt(t.id)],
-      ).get();
+            variables: [Variable.withInt(t.id)],
+          )
+          .get();
       expect(over, isEmpty, reason: '$step: over-allocated payments ${over.map((r) => r.read<String>('r'))}');
     }
     // Unverified / rejected payments never carry allocations.
-    final bad = await db.customSelect(
-      "SELECT COUNT(*) AS c FROM payment_allocations pa JOIN payments p ON p.id = pa.payment_id WHERE p.status <> 'confirmed'",
-    ).getSingle();
+    final bad = await db
+        .customSelect(
+          "SELECT COUNT(*) AS c FROM payment_allocations pa JOIN payments p ON p.id = pa.payment_id WHERE p.status <> 'confirmed'",
+        )
+        .getSingle();
     expect(bad.read<int>('c'), 0, reason: '$step: unconfirmed payment allocated');
   }
 
@@ -128,7 +157,9 @@ void main() {
     // Payments tab: invoices of the month.
     if (r.isSingleMonth) {
       final views = await db.billingDao.watchInvoices(year: r.start.year, month: r.start.month).first;
-      final billed = views.where((v) => v.invoice.status != InvoiceStatus.cancelled).fold<int>(0, (a, v) => a + v.invoice.totalPaise);
+      final billed = views
+          .where((v) => v.invoice.status != InvoiceStatus.cancelled)
+          .fold<int>(0, (a, v) => a + v.invoice.totalPaise);
       expect(billed, s.rentBilledPaise, reason: '$step Payments-tab billed');
       final pays = await db.billingDao.watchPayments(range: r).first;
       final received = pays
@@ -137,7 +168,11 @@ void main() {
       expect(received, s.rentCollectedPaise, reason: '$step Payments-tab received');
       // Collection report "Confirmed" equals dashboard collected.
       final coll = await db.reportsDao.build(ReportType.collection, r);
-      expect({for (final x in coll.summary) x.$1: x.$2}['Confirmed'], Money.format(s.rentCollectedPaise), reason: '$step collection report');
+      expect(
+        {for (final x in coll.summary) x.$1: x.$2}['Confirmed'],
+        Money.format(s.rentCollectedPaise),
+        reason: '$step collection report',
+      );
     }
 
     // Tenant list dues == detail outstanding == ledger balance (minus credit).
@@ -181,7 +216,14 @@ void main() {
       await invariants('partial A');
       expect(await db.billingDao.tenantOutstanding(a), 200000);
 
-      final upiPending = await pay(b, 450000, DateTime(2026, 11, 18), m: PaymentMethod.upi, utr: 'UTR0001', verified: false);
+      final upiPending = await pay(
+        b,
+        450000,
+        DateTime(2026, 11, 18),
+        m: PaymentMethod.upi,
+        utr: 'UTR0001',
+        verified: false,
+      );
       await invariants('B pending UPI');
       await crossScreen(DateRange.month(2026, 11), 'Nov pending UPI');
       await db.billingDao.verifyUpiPayment(upiPending);
@@ -192,7 +234,12 @@ void main() {
       await invariants('B UPI rejected');
 
       await db.opsDao.addExpense(
-          title: 'Power', category: ExpenseCategory.electricity, amountPaise: 230000, date: DateTime(2026, 11, 30), method: PaymentMethod.upi);
+        title: 'Power',
+        category: ExpenseCategory.electricity,
+        amountPaise: 230000,
+        date: DateTime(2026, 11, 30),
+        method: PaymentMethod.upi,
+      );
       await crossScreen(DateRange.month(2026, 11), 'Nov end');
 
       await db.billingDao.generateMonthlyInvoices(2026, 12);
@@ -216,7 +263,12 @@ void main() {
 
       await db.tenantsDao.giveNotice(a, DateTime(2026, 12, 5), DateTime(2027, 1, 4));
       final pv = await db.billingDao.previewCheckout(a, DateTime(2027, 1, 4), deductionsPaise: 50000);
-      final res = await db.billingDao.checkout(a, DateTime(2027, 1, 4), deductionsPaise: 50000, deductionNote: 'Key lost');
+      final res = await db.billingDao.checkout(
+        a,
+        DateTime(2027, 1, 4),
+        deductionsPaise: 50000,
+        deductionNote: 'Key lost',
+      );
       await invariants('A checkout');
       expect(res.refundPaise - res.toCollectPaise, pv.settlementPaise, reason: 'preview == settlement');
       final ta = await (db.select(db.tenants)..where((x) => x.id.equals(a))).getSingle();
@@ -247,13 +299,23 @@ void main() {
     test('leaves mid-month after paying the full month: unused days refunded', () async {
       final t = await tenant(deposit: 0);
       await pay(t, 900000, DateTime(2026, 11, 2));
-      await check(t, DateTime(2026, 11, 10), expectRefund: 900000 - BillingMath.prorate(900000, 10, 30), expectCollect: 0);
+      await check(
+        t,
+        DateTime(2026, 11, 10),
+        expectRefund: 900000 - BillingMath.prorate(900000, 10, 30),
+        expectCollect: 0,
+      );
     });
 
     test('leaves on the 1st of the next month (unbilled)', () async {
       final t = await tenant(deposit: 500000);
       await pay(t, 900000, DateTime(2026, 11, 2));
-      await check(t, DateTime(2026, 12, 1), expectRefund: 500000 - BillingMath.prorate(900000, 1, 31), expectCollect: 0);
+      await check(
+        t,
+        DateTime(2026, 12, 1),
+        expectRefund: 500000 - BillingMath.prorate(900000, 1, 31),
+        expectCollect: 0,
+      );
     });
 
     test('leaves on the last day: full month, no proration', () async {
@@ -263,7 +325,12 @@ void main() {
 
     test('joins and leaves in the same month', () async {
       final t = await tenant(joining: DateTime(2026, 11, 11), deposit: 1000000);
-      await check(t, DateTime(2026, 11, 20), expectRefund: 1000000 - BillingMath.prorate(900000, 10, 30), expectCollect: 0);
+      await check(
+        t,
+        DateTime(2026, 11, 20),
+        expectRefund: 1000000 - BillingMath.prorate(900000, 10, 30),
+        expectCollect: 0,
+      );
     });
 
     test('future-dated checkout next month', () async {
@@ -275,7 +342,12 @@ void main() {
       final t = await tenant(deposit: 0);
       await db.billingDao.generateMonthlyInvoices(2026, 12);
       await pay(t, 1800000, DateTime(2026, 12, 1));
-      await check(t, DateTime(2026, 11, 15), expectRefund: 1800000 - BillingMath.prorate(900000, 15, 30), expectCollect: 0);
+      await check(
+        t,
+        DateTime(2026, 11, 15),
+        expectRefund: 1800000 - BillingMath.prorate(900000, 15, 30),
+        expectCollect: 0,
+      );
     });
 
     test('deductions larger than deposit', () async {
@@ -324,7 +396,10 @@ void main() {
     test('UTR duplicates are caught regardless of case and spaces', () async {
       final t = await tenant();
       await pay(t, 1000, DateTime(2026, 11, 3), m: PaymentMethod.upi, utr: '6123 4567 8901');
-      expect(() => pay(t, 1000, DateTime(2026, 11, 3), m: PaymentMethod.upi, utr: '612345678901'), throwsA(isA<RuleException>()));
+      expect(
+        () => pay(t, 1000, DateTime(2026, 11, 3), m: PaymentMethod.upi, utr: '612345678901'),
+        throwsA(isA<RuleException>()),
+      );
     });
 
     test('a UTR from a rejected entry can be recorded again correctly', () async {
@@ -359,8 +434,11 @@ void main() {
       await pay(t, target.totalPaise + 2 * 900000, DateTime(2026, 11, 20), invoiceId: target.id);
       final after = await invoices(t);
       final paid = after.where((i) => i.paidPaise > 0).map((i) => i.periodStart).toList();
-      expect(paid, [inv[0].periodStart, inv[1].periodStart, inv[20].periodStart],
-          reason: 'spill-over must go to the oldest invoices');
+      expect(paid, [
+        inv[0].periodStart,
+        inv[1].periodStart,
+        inv[20].periodStart,
+      ], reason: 'spill-over must go to the oldest invoices');
     });
   });
 

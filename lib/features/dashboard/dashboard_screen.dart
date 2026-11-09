@@ -88,7 +88,7 @@ class DashboardScreen extends ConsumerWidget {
       _Attention(summary: s),
       const SectionHeader(title: 'Occupancy'),
       _OccupancyCard(summary: s, onTap: () => context.go('/rooms')),
-      const SectionHeader(title: 'Billed vs received · 6 months'),
+      const SectionHeader(title: 'Last 6 months'),
       const _TrendCard(),
       SectionHeader(title: 'Due today', count: s.dueToday.length),
       _PeopleList(items: s.dueToday, emptyText: 'No rent is due today.', overdue: false),
@@ -227,7 +227,7 @@ class _LedgerCard extends StatelessWidget {
               child: Row(
                 children: [
                   _Figure(
-                    label: 'Outstanding',
+                    label: 'Due',
                     value: s.outstandingPaise,
                     color: s.outstandingPaise > 0 ? AppColors.danger : null,
                   ),
@@ -289,7 +289,7 @@ class _QuickActions extends StatelessWidget {
       (Icons.person_add_alt_outlined, 'Add tenant', '/tenants/new'),
       (Icons.payments_outlined, 'Collect', '/payments/collect'),
       (Icons.receipt_long_outlined, 'Expense', '/more/expenses/new'),
-      (Icons.build_circle_outlined, 'Complaint', '/more/complaints/new'),
+      (Icons.campaign_outlined, 'Remind', '/payments/remind'),
     ];
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -358,8 +358,8 @@ class _Attention extends ConsumerWidget {
           Icons.error_outline_rounded,
           AppColors.danger,
           '${s.overdue.length} overdue · ${Money.format(overdueTotal)}',
-          'Open a tenant to send a WhatsApp reminder',
-          () => context.go('/tenants'),
+          'Send WhatsApp reminders in one go',
+          () => context.push('/payments/remind'),
         ),
     ];
     if (rows.isEmpty) return const SizedBox.shrink();

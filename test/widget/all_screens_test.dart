@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:pg_manager/app/app.dart';
+import 'package:pg_manager/features/authentication/auth_controller.dart';
 import 'package:pg_manager/core/database/app_database.dart';
 import 'package:pg_manager/core/database/daos/billing_dao.dart';
 import 'package:pg_manager/core/database/daos/reports_dao.dart';
@@ -95,6 +96,7 @@ Future<Map<String, int>> seed(AppDatabase db, AuthService auth) async {
 }
 
 void main() {
+  AuthController.splashMinimum = Duration.zero;
   setUpAll(() => initializeDateFormatting('en_IN'));
 
   testWidgets('every screen renders with real data and no layout errors', (tester) async {
@@ -138,6 +140,7 @@ void main() {
       '/rooms/new',
       '/payments',
       '/payments/collect',
+      '/payments/remind',
       '/payments/collect?tenant=${ids['tenant2']}',
       '/payments/${ids['payment']}',
       '/invoices/${ids['invoice']}',

@@ -80,32 +80,33 @@ class _Body extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
       children: [
-        Container(
+        AppCard(
           padding: const EdgeInsets.all(Gap.xl),
-          decoration: BoxDecoration(
-            color: reversal ? AppColors.danger : AppColors.primary,
-            borderRadius: BorderRadius.circular(Radii.xl),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(reversal ? Icons.undo_rounded : methodIcon(p.method), color: Colors.white70),
-                  const SizedBox(width: Gap.sm),
-                  Text(
-                    reversal ? 'Amount reversed' : 'Amount received',
-                    style: t.labelLarge?.copyWith(color: Colors.white70),
-                  ),
+                  Expanded(child: Eyebrow(reversal ? 'Amount reversed' : 'Amount received')),
+                  StatusPill(label: statusLabel, color: statusColor, background: statusBg),
                 ],
               ),
               const SizedBox(height: Gap.sm),
               Text(
-                Money.format(p.amountPaise.abs()),
-                style: t.displaySmall?.copyWith(color: Colors.white, fontFeatures: AppTheme.tabular),
+                '${reversal ? '−' : ''}${Money.format(p.amountPaise.abs())}',
+                style: AppTheme.figure(34, color: reversal ? AppColors.danger : null),
               ),
-              const SizedBox(height: Gap.md),
-              StatusPill(label: statusLabel, color: statusColor, background: statusBg),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(reversal ? Icons.undo_rounded : methodIcon(p.method), size: 16, color: AppColors.textMuted),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${p.method.label} · ${Dates.short(p.paymentDate)}',
+                    style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -167,30 +168,23 @@ class _Body extends ConsumerWidget {
         ],
         if (p.status != PaymentStatus.rejected) ...[
           AsyncButton(
-            label: 'View receipt',
-            icon: Icons.receipt_long_rounded,
+            label: 'Send receipt to ${view.tenantName.split(' ').first} on WhatsApp',
+            icon: Icons.send_rounded,
             outlined: pending,
-            onPressed: () async => context.push('/payments/${p.id}/receipt'),
+            onPressed: () async {
+              final r = await ref.read(databaseProvider).billingDao.receiptData(p.id);
+              final direct = await ref.read(exportServiceProvider).sendReceiptToTenant(r);
+              if (!direct && context.mounted) {
+                showAppSnack(context, 'WhatsApp not found, so the receipt was shared with the share menu.');
+              }
+            },
           ),
           const SizedBox(height: Gap.md),
           AsyncButton(
-            label: 'Share on WhatsApp',
-            icon: Icons.chat_outlined,
+            label: 'View or print receipt',
+            icon: Icons.receipt_long_rounded,
             outlined: true,
-            onPressed: () async {
-              final r = await ref.read(databaseProvider).billingDao.receiptData(p.id);
-              final pdf = await ref.read(exportServiceProvider).receiptPdf(r);
-              final f = await ref.read(exportServiceProvider).writeTemp('${p.receiptNumber}.pdf', pdf);
-              await ref
-                  .read(exportServiceProvider)
-                  .shareFile(
-                    f,
-                    mime: 'application/pdf',
-                    text:
-                        '${r.profile.name}: received ${Money.format(p.amountPaise.abs())} from ${r.tenant.fullName} '
-                        'on ${Dates.short(p.paymentDate)}. Receipt ${p.receiptNumber}. Balance due ${Money.format(r.outstandingPaise)}.',
-                  );
-            },
+            onPressed: () async => context.push('/payments/${p.id}/receipt'),
           ),
         ],
         if (canReverse) ...[

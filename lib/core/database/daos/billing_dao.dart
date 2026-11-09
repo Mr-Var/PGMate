@@ -963,17 +963,19 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       final credit = await tenantCredit(tenantId);
       if (credit <= 0) throw RuleException('There is no advance credit to refund.');
       final when = Dates.today(date);
-      final id = await into(payments).insert(PaymentsCompanion.insert(
-        transactionId: _txnId(),
-        receiptNumber: await _receiptNumber(when, reversal: true),
-        tenantId: tenantId,
-        amountPaise: -credit,
-        method: method,
-        paymentDate: when,
-        status: PaymentStatus.confirmed,
-        kind: const Value(PaymentKind.reversal),
-        notes: const Value('Refund of advance credit'),
-      ));
+      final id = await into(payments).insert(
+        PaymentsCompanion.insert(
+          transactionId: _txnId(),
+          receiptNumber: await _receiptNumber(when, reversal: true),
+          tenantId: tenantId,
+          amountPaise: -credit,
+          method: method,
+          paymentDate: when,
+          status: PaymentStatus.confirmed,
+          kind: const Value(PaymentKind.reversal),
+          notes: const Value('Refund of advance credit'),
+        ),
+      );
       await _freezeBalance(id, tenantId);
       await db.settingsDao.log('payment', id, 'refund_credit', Money.format(credit));
       return id;

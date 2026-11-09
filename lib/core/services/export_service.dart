@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -477,11 +478,52 @@ class ExportService {
 
   Future<void> shareText(String text) => SharePlus.instance.share(ShareParams(text: text));
 
+  static const _wa = MethodChannel('pgmate/whatsapp');
+
+  /// Indian mobile as WhatsApp expects it: 91 followed by 10 digits.
+  static String waNumber(String phone) {
+    final d = phone.replaceAll(RegExp(r'\D'), '');
+    return d.length == 10 ? '91$d' : d;
+  }
+
+  /// Sends a file straight into the tenant's WhatsApp chat (the owner only
+  /// taps Send). Falls back to the share sheet if WhatsApp is unavailable.
+  /// Returns true when the tenant's chat was opened directly.
+  Future<bool> whatsappFile(File file, {required String phone, String? text, String mime = 'application/pdf'}) async {
+    try {
+      final ok = await _wa.invokeMethod<bool>('shareFile', {
+        'path': file.path,
+        'phone': waNumber(phone),
+        'text': text ?? '',
+        'mime': mime,
+      });
+      if (ok == true) return true;
+    } on MissingPluginException {
+      // Not on Android (tests, other platforms).
+    } on PlatformException catch (e) {
+      debugPrint('WhatsApp direct share failed: $e');
+    }
+    await shareFile(file, mime: mime, text: text);
+    return false;
+  }
+
+  /// Builds the receipt PDF and sends it to the tenant's WhatsApp.
+  Future<bool> sendReceiptToTenant(ReceiptData r) async {
+    final pdf = await receiptPdf(r);
+    final f = await writeTemp('${r.payment.receiptNumber}.pdf', pdf);
+    final p = r.payment;
+    final first = r.tenant.fullName.split(' ').first;
+    final text = p.kind == PaymentKind.reversal
+        ? 'Hi $first, ${r.profile.name} has reversed ${Money.format(p.amountPaise.abs())} (${p.receiptNumber}).'
+        : 'Hi $first, thank you! ${r.profile.name} received ${Money.format(p.amountPaise)} on '
+              '${Dates.short(p.paymentDate)}. Receipt ${p.receiptNumber} attached.'
+              '${r.outstandingPaise > 0 ? ' Balance due: ${Money.format(r.outstandingPaise)}.' : ' You are fully paid up.'}';
+    return whatsappFile(f, phone: r.tenant.phone, text: text);
+  }
+
   /// Opens WhatsApp with a message, optionally to a specific number.
   Future<bool> whatsapp(String text, {String? phone}) {
-    final to = phone == null
-        ? ''
-        : '91${phone.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^91(?=\d{10}$)'), '')}';
+    final to = phone == null ? '' : waNumber(phone);
     return launchUrl(
       Uri.parse('https://wa.me/$to?text=${Uri.encodeComponent(text)}'),
       mode: LaunchMode.externalApplication,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:pg_manager/app/app.dart';
+import 'package:pg_manager/features/authentication/auth_controller.dart';
 import 'package:pg_manager/core/database/app_database.dart';
 import 'package:pg_manager/core/services/auth_service.dart';
 import 'package:pg_manager/core/services/providers.dart';
@@ -24,6 +25,7 @@ Future<void> settle(WidgetTester tester) async {
 }
 
 void main() {
+  AuthController.splashMinimum = Duration.zero;
   setUpAll(() => initializeDateFormatting('en_IN'));
 
   late AppDatabase db;
@@ -96,7 +98,7 @@ void main() {
 
     expect(find.text('Sunrise PG'), findsOneWidget);
     expect(find.textContaining('RENT RECEIVED'), findsOneWidget);
-    expect(find.text('OUTSTANDING'), findsOneWidget);
+    expect(find.text('DUE'), findsOneWidget);
     // 3 beds from the database, 0 occupied.
     expect(find.text('0%'), findsOneWidget);
     expect(find.text('3'), findsWidgets);

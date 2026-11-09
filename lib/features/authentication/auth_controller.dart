@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/services/providers.dart';
+import 'splash_screen.dart';
 
 enum AuthStage { loading, onboarding, locked, unlocked }
 
@@ -19,9 +20,20 @@ class AuthController extends Notifier<AuthStage> {
     return AuthStage.loading;
   }
 
+  bool _firstLoad = true;
+
+  /// Minimum time the opening animation shows at startup (zero in tests).
+  static Duration splashMinimum = SplashScreen.duration;
+
   Future<void> refresh() async {
+    // Let the opening animation finish once, at startup.
+    final minimum = _firstLoad && splashMinimum > Duration.zero
+        ? Future<void>.delayed(splashMinimum)
+        : Future<void>.value();
+    _firstLoad = false;
     final hasPin = await _auth.hasPin();
     final profile = await ref.read(databaseProvider).settingsDao.getProfile();
+    await minimum;
     if (!hasPin || profile == null) {
       state = AuthStage.onboarding;
     } else if (state != AuthStage.unlocked) {

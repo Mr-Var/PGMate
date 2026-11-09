@@ -29,6 +29,11 @@ class PaymentsScreen extends ConsumerWidget {
           title: const Text('Payments'),
           actions: [
             IconButton(
+              tooltip: 'Send rent reminders',
+              icon: const Icon(Icons.campaign_outlined),
+              onPressed: () => context.push('/payments/remind'),
+            ),
+            IconButton(
               tooltip: 'New invoice',
               icon: const Icon(Icons.post_add_rounded),
               onPressed: () => context.push('/invoices/new'),

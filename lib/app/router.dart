@@ -6,6 +6,7 @@ import '../core/database/daos/reports_dao.dart';
 import '../features/authentication/auth_controller.dart';
 import '../features/authentication/lock_screen.dart';
 import '../features/authentication/onboarding_screen.dart';
+import '../features/authentication/splash_screen.dart';
 import '../features/backup/backup_screen.dart';
 import '../features/complaints/complaints_screens.dart';
 import '../features/dashboard/dashboard_screen.dart';
@@ -17,6 +18,7 @@ import '../features/payments/invoice_detail_screen.dart';
 import '../features/payments/invoice_form_screen.dart';
 import '../features/payments/payment_detail_screen.dart';
 import '../features/payments/payments_screen.dart';
+import '../features/payments/reminders_screen.dart';
 import '../features/reports/reports_screens.dart';
 import '../features/rooms/room_form_screen.dart';
 import '../features/rooms/rooms_screen.dart';
@@ -57,7 +59,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
     },
     routes: [
-      GoRoute(path: '/splash', builder: (_, _) => const _Splash()),
+      GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
       GoRoute(path: '/lock', builder: (_, _) => const LockScreen()),
       StatefulShellRoute.indexedStack(
@@ -109,6 +111,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/payments/collect',
         builder: (_, s) => CollectPaymentScreen(tenantId: _q(s, 'tenant'), invoiceId: _q(s, 'invoice')),
       ),
+      GoRoute(path: '/payments/remind', builder: (_, _) => const RemindersScreen()),
       GoRoute(
         path: '/payments/:id',
         builder: (_, s) => PaymentDetailScreen(paymentId: _id(s)!),
@@ -176,10 +179,3 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(router.dispose);
   return router;
 });
-
-class _Splash extends StatelessWidget {
-  const _Splash();
-
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: CircularProgressIndicator()));
-}

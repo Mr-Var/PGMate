@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:pg_manager/core/utils/money.dart';
+import 'package:pg_manager/core/services/export_service.dart';
+import 'package:pg_manager/features/payments/reminders_screen.dart';
 
 void main() {
   setUpAll(() => initializeDateFormatting('en_IN'));
@@ -37,5 +39,27 @@ void main() {
     for (final p in [0, 5, 100, 850000, 1234550]) {
       expect(Money.parseRupees(Money.toInput(p)), p);
     }
+  });
+
+  test('reminder message fills placeholders', () {
+    final m = fillReminder(
+      defaultReminderTemplate,
+      name: 'Arjun Mehta',
+      amountPaise: 1445000,
+      pg: 'Sunrise PG',
+      upi: 'ravi@okaxis',
+    );
+    expect(m, contains('Hi Arjun,'));
+    expect(m, contains('₹14,450'));
+    expect(m, contains('Sunrise PG'));
+    expect(m, contains('ravi@okaxis'));
+    final noUpi = fillReminder(defaultReminderTemplate, name: 'Bala', amountPaise: 100, pg: 'X', upi: null);
+    expect(noUpi, isNot(contains('UPI')));
+    expect(noUpi, isNot(contains('  ')));
+  });
+
+  test('WhatsApp numbers get the India code once', () {
+    expect(ExportService.waNumber('98765 43210'), '919876543210');
+    expect(ExportService.waNumber('+91 98765-43210'), '919876543210');
   });
 }

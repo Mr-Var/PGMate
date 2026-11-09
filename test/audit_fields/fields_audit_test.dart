@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:pg_manager/app/app.dart';
+import 'package:pg_manager/features/authentication/auth_controller.dart';
 import 'package:pg_manager/core/database/app_database.dart';
 import 'package:pg_manager/core/services/auth_service.dart';
 import 'package:pg_manager/core/services/providers.dart';
@@ -53,6 +54,7 @@ Future<void> teardown(WidgetTester tester, AppDatabase db) async {
 }
 
 void main() {
+  AuthController.splashMinimum = Duration.zero;
   setUpAll(() => initializeDateFormatting('en_IN'));
 
   test('money parsing used by every amount field', () {
@@ -146,13 +148,11 @@ void main() {
   // Reachable in the notice sheet: set "Notice given on" after "Expected
   // checkout", then tap "Expected checkout" → showDatePicker assertion.
   testWidgets('date field with value before first does not crash', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (_) => _DateHost(),
-        ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Builder(builder: (_) => _DateHost())),
       ),
-    ));
+    );
     await tester.tap(find.text('Expected checkout'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);

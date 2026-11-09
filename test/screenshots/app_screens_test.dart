@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:pg_manager/app/app.dart';
+import 'package:pg_manager/features/authentication/auth_controller.dart';
 import 'package:pg_manager/core/database/app_database.dart';
 import 'package:pg_manager/core/services/auth_service.dart';
 import 'package:pg_manager/core/services/providers.dart';
@@ -28,6 +29,7 @@ Future<void> _font(String family, List<String> paths) async {
 }
 
 void main() {
+  AuthController.splashMinimum = Duration.zero;
   setUpAll(() async {
     await initializeDateFormatting('en_IN');
     const f = 'assets/fonts/IBMPlexSans';
@@ -89,6 +91,7 @@ void main() {
       ('18_backup', '/more/backup', 780.0),
       ('19_more', '/more', 780.0),
       ('20_settings', '/more/settings', 1000.0),
+      ('22_reminders', '/payments/remind', 1100.0),
       ('21_new_invoice', '/invoices/new?tenant=${ids['tenant']}', 1200.0),
     ];
     for (final (name, route, h) in pages) {
