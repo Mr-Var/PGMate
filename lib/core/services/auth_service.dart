@@ -53,12 +53,23 @@ class PinLockedOut extends PinCheck {
 }
 
 class AuthService {
-  AuthService({required this.store, LocalAuthentication? localAuth, this.iterations = PinHasher.defaultIterations})
-      : _localAuth = localAuth ?? LocalAuthentication();
+  AuthService({
+    required this.store,
+    LocalAuthentication? localAuth,
+    this.iterations = PinHasher.defaultIterations,
+    this.hashInIsolate = true,
+  }) : _localAuth = localAuth ?? LocalAuthentication();
 
   final SecureStore store;
   final LocalAuthentication _localAuth;
   final int iterations;
+
+  /// Hashing runs off the UI thread in the app. Widget tests turn this off
+  /// because background isolates do not advance inside fake test time.
+  final bool hashInIsolate;
+
+  Future<String> _hash(String pin, String salt, int iters) =>
+      hashInIsolate ? PinHasher.hash(pin, salt, iterations: iters) : Future.value(PinHasher.hashSync(pin, salt, iterations: iters));
 
   static const pinLength = 4;
   static const maxAttempts = 5;
@@ -84,7 +95,7 @@ class AuthService {
     final error = validatePin(pin);
     if (error != null) throw ArgumentError(error);
     final salt = PinHasher.newSalt();
-    final hash = await PinHasher.hash(pin, salt, iterations: iterations);
+    final hash = await _hash(pin, salt, iterations);
     await store.write(_kSalt, salt);
     await store.write(_kIterations, '$iterations');
     await store.write(_kHash, hash);
@@ -108,7 +119,7 @@ class AuthService {
     if (hash == null || salt == null) return const PinWrong(0);
     final iters = int.tryParse(await store.read(_kIterations) ?? '') ?? iterations;
 
-    final candidate = await PinHasher.hash(pin, salt, iterations: iters);
+    final candidate = await _hash(pin, salt, iters);
     if (PinHasher.equals(candidate, hash)) {
       await store.delete(_kFailed);
       await store.delete(_kLockedUntil);

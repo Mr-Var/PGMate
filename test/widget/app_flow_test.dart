@@ -33,7 +33,7 @@ void main() {
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
     store = MemorySecureStore();
-    auth = AuthService(store: store, iterations: 1000);
+    auth = AuthService(store: store, iterations: 1000, hashInIsolate: false);
   });
 
   Widget app() => ProviderScope(
@@ -61,6 +61,9 @@ void main() {
     await tester.pump();
     expect(find.text('PG name is required'), findsOneWidget);
 
+    // Unmount first so no live query keeps the database busy while closing.
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
     await tester.runAsync(() => db.close());
   });
 
@@ -104,6 +107,9 @@ void main() {
     expect(find.text('Room 101'), findsOneWidget);
     expect(find.text('Bed A'), findsOneWidget);
 
+    // Unmount first so no live query keeps the database busy while closing.
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
     await tester.runAsync(() => db.close());
-  }, skip: true); // Hangs in the test harness after PIN entry; under investigation.
+  });
 }

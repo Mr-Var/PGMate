@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/database/daos/dashboard_dao.dart';
 import '../../core/services/providers.dart';
@@ -73,16 +74,19 @@ class DashboardScreen extends ConsumerWidget {
         const SizedBox(height: Gap.lg),
       ],
       _CollectionHero(summary: s),
-      if (s.pendingUpiCount > 0) ...[
-        const SizedBox(height: Gap.md),
-        _PendingUpiBanner(count: s.pendingUpiCount),
-      ],
+      if (s.pendingUpiCount > 0) ...[const SizedBox(height: Gap.md), _PendingUpiBanner(count: s.pendingUpiCount)],
       const SectionHeader(title: 'Quick actions'),
-      _QuickActions(onAddRoom: () => context.push('/rooms/new'), onRooms: () => context.go('/rooms')),
+      const _QuickActions(),
+      const _InvoicePrompt(),
       const SectionHeader(title: 'Occupancy'),
       _OccupancyCard(summary: s, onTap: () => context.go('/rooms')),
-      SectionHeader(title: 'Finances', trailing: Text(s.range.label, style: _caption(context))),
+      SectionHeader(
+        title: 'Finances',
+        trailing: Text(s.range.label, style: _caption(context)),
+      ),
       _FinanceGrid(summary: s),
+      const SectionHeader(title: 'Collection trend'),
+      const _TrendCard(),
       SectionHeader(title: 'Rent due today', count: s.dueToday.length),
       _DueList(items: s.dueToday, emptyText: 'No rent is due today.', overdue: false),
       SectionHeader(title: 'Overdue', count: s.overdue.length),
@@ -124,11 +128,12 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(first == null ? _greeting : '$_greeting, $first',
-                  style: t.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+              Text(
+                first == null ? _greeting : '$_greeting, $first',
+                style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              ),
               const SizedBox(height: 2),
-              Text(pgName ?? 'Dashboard',
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: t.headlineSmall),
+              Text(pgName ?? 'Dashboard', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.headlineSmall),
             ],
           ),
         ),
@@ -157,7 +162,8 @@ class _CollectionHero extends StatelessWidget {
 
     return Semantics(
       container: true,
-      label: 'Collected ${Money.format(s.rentCollectedPaise)} in ${s.range.label}. '
+      label:
+          'Collected ${Money.format(s.rentCollectedPaise)} in ${s.range.label}. '
           'Billed ${Money.format(s.rentBilledPaise)}. Outstanding ${Money.format(s.outstandingPaise)}.',
       excludeSemantics: true,
       child: Container(
@@ -168,9 +174,15 @@ class _CollectionHero extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('Rent collected', style: t.labelLarge?.copyWith(color: onDim)),
-                const Spacer(),
-                Text(s.range.label, style: t.labelMedium?.copyWith(color: onDim)),
+                Expanded(
+                  child: Text('Rent collected',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: t.labelLarge?.copyWith(color: onDim)),
+                ),
+                const SizedBox(width: Gap.sm),
+                Flexible(
+                  child: Text(s.range.label,
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: t.labelMedium?.copyWith(color: onDim)),
+                ),
               ],
             ),
             const SizedBox(height: Gap.sm),
@@ -207,10 +219,14 @@ class _CollectionHero extends StatelessWidget {
             const SizedBox(height: Gap.md),
             Row(
               children: [
-                Expanded(child: _HeroStat(label: 'Billed', value: Money.format(s.rentBilledPaise))),
+                Expanded(
+                  child: _HeroStat(label: 'Billed', value: Money.format(s.rentBilledPaise)),
+                ),
                 Container(width: 1, height: 36, color: Colors.white.withValues(alpha: 0.14)),
                 const SizedBox(width: Gap.lg),
-                Expanded(child: _HeroStat(label: 'Outstanding', value: Money.format(s.outstandingPaise))),
+                Expanded(
+                  child: _HeroStat(label: 'Outstanding', value: Money.format(s.outstandingPaise)),
+                ),
               ],
             ),
           ],
@@ -236,8 +252,10 @@ class _HeroStat extends StatelessWidget {
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Text(value,
-              style: t.titleMedium?.copyWith(color: Colors.white, fontFeatures: AppTheme.tabular)),
+          child: Text(
+            value,
+            style: t.titleMedium?.copyWith(color: Colors.white, fontFeatures: AppTheme.tabular),
+          ),
         ),
       ],
     );
@@ -250,23 +268,209 @@ class _PendingUpiBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(Gap.md),
-      decoration: BoxDecoration(
-        color: AppColors.warningSoft,
-        borderRadius: BorderRadius.circular(Radii.md),
-        border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.hourglass_top_rounded, color: AppColors.warning, size: 20),
-          const SizedBox(width: Gap.md),
-          Expanded(
-            child: Text(
-              '$count UPI ${count == 1 ? 'payment needs' : 'payments need'} verification. '
-              'They are not counted as collected until you confirm them.',
-              style: const TextStyle(color: AppColors.warning, fontWeight: FontWeight.w500, fontSize: 13),
+    return InkWell(
+      onTap: () => context.go('/payments'),
+      borderRadius: BorderRadius.circular(Radii.md),
+      child: Container(
+        padding: const EdgeInsets.all(Gap.md),
+        decoration: BoxDecoration(
+          color: AppColors.warningSoft,
+          borderRadius: BorderRadius.circular(Radii.md),
+          border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.hourglass_top_rounded, color: AppColors.warning, size: 20),
+            const SizedBox(width: Gap.md),
+            Expanded(
+              child: Text(
+                '$count UPI ${count == 1 ? 'payment needs' : 'payments need'} verification. '
+                'They are not counted as collected until you confirm them.',
+                style: const TextStyle(color: AppColors.warning, fontWeight: FontWeight.w500, fontSize: 13),
+              ),
             ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.warning),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions();
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = [
+      (Icons.person_add_alt_1_outlined, 'Add tenant', '/tenants/new'),
+      (Icons.add_card_rounded, 'Collect rent', '/payments/collect'),
+      (Icons.receipt_outlined, 'Add expense', '/more/expenses/new'),
+      (Icons.report_problem_outlined, 'Complaint', '/more/complaints/new'),
+    ];
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final a in actions)
+          Expanded(
+            child: Semantics(
+              button: true,
+              label: a.$2,
+              excludeSemantics: true,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(Radii.md),
+                onTap: () => context.push(a.$3),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Gap.sm),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.accentSoft,
+                          borderRadius: BorderRadius.circular(Radii.lg),
+                        ),
+                        child: Icon(a.$1, color: AppColors.accentText, size: 26),
+                      ),
+                      const SizedBox(height: Gap.sm),
+                      Text(
+                        a.$2,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+final _unbilledNowProvider = StreamProvider<int>((ref) {
+  final n = DateTime.now();
+  return ref.watch(databaseProvider).billingDao.watchUnbilledCount(n.year, n.month);
+});
+
+/// Prompts to bill the current month when some tenants have no invoice yet.
+class _InvoicePrompt extends ConsumerWidget {
+  const _InvoicePrompt();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(_unbilledNowProvider).value ?? 0;
+    if (count == 0) return const SizedBox.shrink();
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: Gap.md),
+      child: AppCard(
+        onTap: () => context.go('/payments'),
+        child: Row(
+          children: [
+            const Icon(Icons.auto_awesome_outlined, color: AppColors.primary),
+            const SizedBox(width: Gap.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Bill ${Dates.monthYear(DateTime.now())} rent', style: t.titleSmall),
+                  Text(
+                    '$count ${count == 1 ? 'tenant has' : 'tenants have'} no invoice yet',
+                    style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+final _trendProvider = FutureProvider<List<(DateTime, int, int)>>((ref) {
+  ref.watch(dashboardSummaryProvider); // refresh with the dashboard
+  return ref.watch(databaseProvider).reportsDao.monthlyTrend(6);
+});
+
+/// Six-month billed vs collected bars, drawn to one scale.
+class _TrendCard extends ConsumerWidget {
+  const _TrendCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(_trendProvider).value;
+    final t = Theme.of(context).textTheme;
+    if (data == null) return const SkeletonBox(height: 190, radius: Radii.lg);
+    final maxV = data.fold<int>(0, (a, d) => [a, d.$2, d.$3].reduce((x, y) => x > y ? x : y));
+    if (maxV == 0) {
+      return AppCard(
+        child: Text(
+          'Billed and collected rent for the last six months will appear here.',
+          style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
+        ),
+      );
+    }
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _Legend(color: AppColors.primary.withValues(alpha: 0.22), label: 'Billed'),
+              const SizedBox(width: Gap.lg),
+              const _Legend(color: AppColors.primary, label: 'Collected'),
+              const Spacer(),
+              Text('Max ${Money.compact(maxV)}', style: t.labelSmall?.copyWith(color: AppColors.textMuted)),
+            ],
+          ),
+          const SizedBox(height: Gap.lg),
+          SizedBox(
+            height: 120,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final d in data)
+                  Expanded(
+                    child: Semantics(
+                      label: '${Dates.monthYear(d.$1)}: billed ${Money.format(d.$2)}, collected ${Money.format(d.$3)}',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: _Bar(fraction: d.$2 / maxV, color: AppColors.primary.withValues(alpha: 0.22)),
+                            ),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: _Bar(fraction: d.$3 / maxV, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Gap.sm),
+          Row(
+            children: [
+              for (final d in data)
+                Expanded(
+                  child: Text(
+                    DateFormat('MMM').format(d.$1),
+                    textAlign: TextAlign.center,
+                    style: t.labelSmall?.copyWith(color: AppColors.textMuted),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -274,47 +478,46 @@ class _PendingUpiBanner extends StatelessWidget {
   }
 }
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.onAddRoom, required this.onRooms});
-
-  final VoidCallback onAddRoom;
-  final VoidCallback onRooms;
+class _Bar extends StatelessWidget {
+  const _Bar({required this.fraction, required this.color});
+  final double fraction;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final actions = [
-      (Icons.add_home_work_outlined, 'Add room', onAddRoom),
-      (Icons.bed_outlined, 'Bed map', onRooms),
-    ];
-    return Row(
-      children: [
-        for (final (i, a) in actions.indexed) ...[
-          if (i > 0) const SizedBox(width: Gap.md),
-          Expanded(
-            child: AppCard(
-              onTap: a.$3,
-              padding: const EdgeInsets.symmetric(vertical: Gap.lg, horizontal: Gap.md),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.accentSoft,
-                      borderRadius: BorderRadius.circular(Radii.md),
-                    ),
-                    child: Icon(a.$1, color: AppColors.accentText, size: 22),
-                  ),
-                  const SizedBox(width: Gap.md),
-                  Expanded(child: Text(a.$2, style: Theme.of(context).textTheme.titleSmall)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: fraction.clamp(0, 1)),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOutCubic,
+      builder: (_, v, _) => Container(
+        height: v == 0 ? 2 : 120 * v,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+        ),
+      ),
     );
   }
+}
+
+class _Legend extends StatelessWidget {
+  const _Legend({required this.color, required this.label});
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
+      ),
+      const SizedBox(width: 6),
+      Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+    ],
+  );
 }
 
 class _OccupancyCard extends StatelessWidget {
@@ -342,14 +545,18 @@ class _OccupancyCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${(s.occupancy * 100).round()}%',
-                  style: t.headlineMedium?.copyWith(fontFeatures: AppTheme.tabular)),
-              const SizedBox(width: Gap.sm),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text('occupied', style: t.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+              Text(
+                '${(s.occupancy * 100).round()}%',
+                style: t.headlineMedium?.copyWith(fontFeatures: AppTheme.tabular),
               ),
-              const Spacer(),
+              const SizedBox(width: Gap.sm),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('occupied',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+                ),
+              ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -377,7 +584,11 @@ class _OccupancyCard extends StatelessWidget {
                   : Row(
                       children: [
                         for (final seg in segments)
-                          if (seg.$2 > 0) Expanded(flex: seg.$2, child: Container(color: seg.$3)),
+                          if (seg.$2 > 0)
+                            Expanded(
+                              flex: seg.$2,
+                              child: Container(color: seg.$3),
+                            ),
                       ],
                     ),
             ),
@@ -447,9 +658,21 @@ class _FinanceGrid extends StatelessWidget {
     ];
     return Column(
       children: [
-        Row(children: [Expanded(child: tiles[0]), const SizedBox(width: Gap.md), Expanded(child: tiles[1])]),
+        Row(
+          children: [
+            Expanded(child: tiles[0]),
+            const SizedBox(width: Gap.md),
+            Expanded(child: tiles[1]),
+          ],
+        ),
         const SizedBox(height: Gap.md),
-        Row(children: [Expanded(child: tiles[2]), const SizedBox(width: Gap.md), Expanded(child: tiles[3])]),
+        Row(
+          children: [
+            Expanded(child: tiles[2]),
+            const SizedBox(width: Gap.md),
+            Expanded(child: tiles[3]),
+          ],
+        ),
         const SizedBox(height: Gap.md),
         AppCard(
           child: Row(
@@ -464,17 +687,21 @@ class _FinanceGrid extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Net cash flow', style: Theme.of(context).textTheme.titleSmall),
-                    Text('Collected minus expenses',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted)),
+                    Text(
+                      'Collected minus expenses',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+                    ),
                   ],
                 ),
               ),
               Text(
-                '${net > 0 ? '+' : net < 0 ? '−' : ''}${Money.format(net.abs())}',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontFeatures: AppTheme.tabular,
-                      color: net >= 0 ? AppColors.success : AppColors.danger,
-                    ),
+                '${net > 0
+                    ? '+'
+                    : net < 0
+                    ? '−'
+                    : ''}${Money.format(net.abs())}',
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontFeatures: AppTheme.tabular, color: net >= 0 ? AppColors.success : AppColors.danger),
               ),
             ],
           ),
@@ -518,7 +745,10 @@ class _Avatar extends StatelessWidget {
     return CircleAvatar(
       radius: 20,
       backgroundColor: color.withValues(alpha: 0.10),
-      child: Text(initials, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 14)),
+      child: Text(
+        initials,
+        style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 14),
+      ),
     );
   }
 }
@@ -542,16 +772,20 @@ class _DueList extends StatelessWidget {
             if (i > 0) const Divider(indent: 68),
             ListTile(
               minTileHeight: 64,
+              onTap: () => context.push('/tenants/${d.tenantId}'),
               leading: _Avatar(name: d.tenantName, color: overdue ? AppColors.danger : AppColors.primary),
               title: Text(d.tenantName, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(
-                [d.roomLabel, overdue ? 'Due ${Dates.relativeDays(d.dueDate).toLowerCase()}' : null]
-                    .whereType<String>()
-                    .join(' · '),
+                [
+                  d.roomLabel,
+                  overdue ? 'Due ${Dates.relativeDays(d.dueDate).toLowerCase()}' : null,
+                ].whereType<String>().join(' · '),
                 style: t.bodySmall?.copyWith(color: overdue ? AppColors.danger : AppColors.textMuted),
               ),
-              trailing: Text(Money.format(d.balancePaise),
-                  style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular)),
+              trailing: Text(
+                Money.format(d.balancePaise),
+                style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular),
+              ),
             ),
           ],
         ],
@@ -577,6 +811,7 @@ class _CheckoutList extends StatelessWidget {
             if (i > 0) const Divider(indent: 68),
             ListTile(
               minTileHeight: 64,
+              onTap: () => context.push('/tenants/${c.tenantId}/checkout'),
               leading: _Avatar(name: c.tenantName, color: AppColors.info),
               title: Text(c.tenantName, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: c.roomLabel == null ? null : Text(c.roomLabel!),
@@ -678,7 +913,11 @@ class _SetupCard extends StatelessWidget {
             style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: Gap.lg),
-          FilledButton.icon(onPressed: onAddRoom, icon: const Icon(Icons.add_rounded), label: const Text('Add first room')),
+          FilledButton.icon(
+            onPressed: onAddRoom,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add first room'),
+          ),
         ],
       ),
     );
@@ -701,11 +940,13 @@ class _DashboardSkeleton extends StatelessWidget {
           SizedBox(height: Gap.md),
           SkeletonBox(height: 120, radius: Radii.lg),
           SizedBox(height: Gap.xl),
-          Row(children: [
-            Expanded(child: SkeletonBox(height: 100, radius: Radii.lg)),
-            SizedBox(width: Gap.md),
-            Expanded(child: SkeletonBox(height: 100, radius: Radii.lg)),
-          ]),
+          Row(
+            children: [
+              Expanded(child: SkeletonBox(height: 100, radius: Radii.lg)),
+              SizedBox(width: Gap.md),
+              Expanded(child: SkeletonBox(height: 100, radius: Radii.lg)),
+            ],
+          ),
         ],
       ),
     );

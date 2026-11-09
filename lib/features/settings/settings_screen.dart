@@ -96,6 +96,28 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const SectionHeader(title: 'Reminders'),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Consumer(
+              builder: (context, ref, _) {
+                final on = ref.watch(remindersEnabledProvider).value ?? true;
+                return SwitchListTile(
+                  secondary: const Icon(Icons.notifications_active_outlined, color: AppColors.primary),
+                  title: const Text('Rent due reminders'),
+                  subtitle: const Text('A notification at 9 AM when a tenant\'s rent is due'),
+                  value: on,
+                  onChanged: (v) async {
+                    final db = ref.read(databaseProvider);
+                    final reminders = ref.read(reminderServiceProvider);
+                    if (v) await reminders.requestPermission();
+                    await db.settingsDao.setSetting('reminders_enabled', '$v');
+                    await refreshReminders(db, reminders);
+                  },
+                );
+              },
+            ),
+          ),
           const SectionHeader(title: 'About'),
           const AppCard(
             child: Row(

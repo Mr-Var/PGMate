@@ -803,7 +803,55 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
         ]);
   }
 
-  Stream<PaymentView?> watchPayment(int id) => watchPayments().map((l) => l.where((p) => p.payment.id == id).firstOrNull);
+  /// One invoice with the payments applied to it.
+  Stream<(InvoiceView, List<(Payment, int)>)?> watchInvoice(int id) {
+    return customSelect('SELECT 1', readsFrom: {rentInvoices, paymentAllocations, payments, tenants}).watch().asyncMap((_) async {
+      final r = await customSelect(
+        '''SELECT i.*, t.full_name AS tenant_name, $_roomLabelSql AS room_label
+           FROM rent_invoices i JOIN tenants t ON t.id = i.tenant_id WHERE i.id = ?''',
+        variables: [Variable.withInt(id)],
+      ).getSingleOrNull();
+      if (r == null) return null;
+      final view = InvoiceView(await rentInvoices.mapFromRow(r), r.read<String>('tenant_name'), r.read<String?>('room_label'));
+      final allocs = await customSelect(
+        '''SELECT p.*, SUM(pa.amount_paise) AS applied FROM payment_allocations pa
+           JOIN payments p ON p.id = pa.payment_id WHERE pa.invoice_id = ?
+           GROUP BY p.id ORDER BY p.payment_date, p.id''',
+        variables: [Variable.withInt(id)],
+      ).get();
+      return (view, [for (final a in allocs) (await payments.mapFromRow(a), a.read<int>('applied'))]);
+    });
+  }
+
+  /// Whether invoices exist for the month (to prompt generation).
+  Stream<int> watchInvoiceCount(int year, int month) => customSelect(
+        "SELECT COUNT(*) AS c FROM rent_invoices WHERE period_year = ? AND period_month = ? AND status <> 'cancelled'",
+        variables: [Variable.withInt(year), Variable.withInt(month)],
+        readsFrom: {rentInvoices},
+      ).watchSingle().map((r) => r.read<int>('c'));
+
+  /// Current tenants with a bed but no invoice for the month yet.
+  Stream<int> watchUnbilledCount(int year, int month) => customSelect(
+        '''SELECT COUNT(*) AS c FROM tenants t
+           JOIN allocations a ON a.tenant_id = t.id AND a.is_active = 1
+           WHERE t.status IN ('newTenant','active','noticeGiven') AND t.joining_date < ?
+             AND NOT EXISTS (SELECT 1 FROM rent_invoices i WHERE i.tenant_id = t.id AND i.period_year = ?
+                               AND i.period_month = ? AND i.status <> 'cancelled')''',
+        variables: [Variable.withDateTime(DateTime(year, month + 1)), Variable.withInt(year), Variable.withInt(month)],
+        readsFrom: {tenants, allocations, rentInvoices},
+      ).watchSingle().map((r) => r.read<int>('c'));
+
+  Stream<PaymentView?> watchPayment(int id) {
+    return customSelect(
+      '''SELECT p.*, t.full_name AS tenant_name,
+           EXISTS (SELECT 1 FROM payments r WHERE r.reverses_payment_id = p.id) AS reversed
+         FROM payments p JOIN tenants t ON t.id = p.tenant_id WHERE p.id = ?''',
+      variables: [Variable.withInt(id)],
+      readsFrom: {payments, tenants},
+    ).watchSingleOrNull().asyncMap((r) async => r == null
+        ? null
+        : PaymentView(await payments.mapFromRow(r), r.read<String>('tenant_name'), isReversed: r.read<bool>('reversed')));
+  }
 
   Future<ReceiptData> receiptData(int paymentId) async {
     final p = await (select(payments)..where((x) => x.id.equals(paymentId))).getSingle();

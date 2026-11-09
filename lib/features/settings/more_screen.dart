@@ -11,17 +11,15 @@ class MoreScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Items without a route are shown as upcoming and are not tappable,
-    // so there are no buttons that do nothing.
     const operations = [
-      (Icons.shopping_bag_outlined, 'Expenses', 'Bills, salaries and utilities', null),
-      (Icons.report_problem_outlined, 'Complaints', 'Maintenance requests', null),
-      (Icons.restaurant_menu_rounded, 'Food menu', 'Daily breakfast, lunch, dinner', null),
-      (Icons.campaign_outlined, 'Notices', 'Announcements for tenants', null),
+      (Icons.shopping_bag_outlined, 'Expenses', 'Bills, salaries and utilities', '/more/expenses'),
+      (Icons.report_problem_outlined, 'Complaints', 'Maintenance requests', '/more/complaints'),
+      (Icons.restaurant_menu_rounded, 'Food menu', 'Daily breakfast, lunch, dinner', '/more/menu'),
+      (Icons.campaign_outlined, 'Notices', 'Announcements for tenants', '/more/notices'),
     ];
     const admin = [
-      (Icons.insert_chart_outlined_rounded, 'Reports', 'Collections, dues, occupancy', null),
-      (Icons.cloud_sync_outlined, 'Backup & restore', 'Encrypted local backup', null),
+      (Icons.insert_chart_outlined_rounded, 'Reports', 'Collections, dues, occupancy', '/more/reports'),
+      (Icons.cloud_sync_outlined, 'Backup & restore', 'Encrypted local backup', '/more/backup'),
       (Icons.settings_outlined, 'Settings', 'PG profile, PIN, biometrics', '/more/settings'),
     ];
 

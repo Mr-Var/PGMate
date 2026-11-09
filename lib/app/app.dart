@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/services/providers.dart';
 import '../core/theme/app_theme.dart';
 import '../features/authentication/auth_controller.dart';
 import 'router.dart';
@@ -24,6 +25,21 @@ class _PgManagerAppState extends ConsumerState<PgManagerApp> {
       onHide: () => ref.read(authControllerProvider.notifier).onBackground(),
       onShow: () => ref.read(authControllerProvider.notifier).onForeground(),
     );
+    // Daily upkeep each time the owner unlocks: mark overdue invoices and
+    // refresh local rent reminders. Failures never block the app.
+    ref.listenManual(authControllerProvider, (prev, next) {
+      if (next == AuthStage.unlocked && prev != AuthStage.unlocked) _upkeep();
+    });
+  }
+
+  Future<void> _upkeep() async {
+    try {
+      final db = ref.read(databaseProvider);
+      await db.billingDao.refreshOverdue();
+      await refreshReminders(db, ref.read(reminderServiceProvider));
+    } catch (e) {
+      debugPrint('Upkeep skipped: $e');
+    }
   }
 
   @override
