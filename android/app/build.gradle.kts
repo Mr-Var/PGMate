@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.pgmate.pg_manager"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_local_notifications needs SDK 37 to compile against.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
