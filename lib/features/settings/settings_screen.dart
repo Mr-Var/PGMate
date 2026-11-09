@@ -18,10 +18,10 @@ final _biometricStateProvider = FutureProvider.autoDispose<(bool available, bool
 });
 
 Future<bool?> _verify(AuthService auth, String pin) async => switch (await auth.verifyPin(pin)) {
-      PinOk() => true,
-      PinWrong() => false,
-      PinLockedOut() => null,
-    };
+  PinOk() => true,
+  PinWrong() => false,
+  PinLockedOut() => null,
+};
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -217,7 +217,10 @@ class EditProfileScreen extends ConsumerWidget {
               initial: p,
               submitLabel: 'Save changes',
               onSubmit: (d) async {
-                await ref.read(databaseProvider).settingsDao.saveProfile(
+                await ref
+                    .read(databaseProvider)
+                    .settingsDao
+                    .saveProfile(
                       name: d.name,
                       address: d.address,
                       ownerName: d.ownerName,

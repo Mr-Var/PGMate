@@ -84,7 +84,8 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
       final go = await confirmAction(
         context,
         title: 'Possible duplicate',
-        message: '${similar.receiptNumber} already records ${Money.format(amount)} from $tenantName on ${Dates.short(_date)}. '
+        message:
+            '${similar.receiptNumber} already records ${Money.format(amount)} from $tenantName on ${Dates.short(_date)}. '
             'Record another payment anyway?',
         confirmLabel: 'Record again',
       );
@@ -93,16 +94,18 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
     if (!mounted) return;
     int? id;
     final ok = await runGuarded(context, () async {
-      id = await dao.recordPayment(PaymentInput(
-        tenantId: _tenantId!,
-        amountPaise: amount,
-        method: _method,
-        date: _date,
-        invoiceId: _invoiceId,
-        upiReference: _method == PaymentMethod.upi ? _utr.text : null,
-        upiVerified: _verified,
-        notes: _notes.text,
-      ));
+      id = await dao.recordPayment(
+        PaymentInput(
+          tenantId: _tenantId!,
+          amountPaise: amount,
+          method: _method,
+          date: _date,
+          invoiceId: _invoiceId,
+          upiReference: _method == PaymentMethod.upi ? _utr.text : null,
+          upiVerified: _verified,
+          notes: _notes.text,
+        ),
+      );
       await refreshReminders(ref.read(databaseProvider), ref.read(reminderServiceProvider));
     });
     if (!ok || !mounted) return;
@@ -119,8 +122,11 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final detail = _tenantId == null ? null : ref.watch(tenantDetailProvider(_tenantId!)).value;
-    final invoices = _tenantId == null ? const <InvoiceView>[] : (ref.watch(tenantInvoicesProvider(_tenantId!)).value ?? const <InvoiceView>[]);
-    final open = invoices.where((v) => v.balancePaise > 0).toList()..sort((a, b) => a.invoice.periodStart.compareTo(b.invoice.periodStart));
+    final invoices = _tenantId == null
+        ? const <InvoiceView>[]
+        : (ref.watch(tenantInvoicesProvider(_tenantId!)).value ?? const <InvoiceView>[]);
+    final open = invoices.where((v) => v.balancePaise > 0).toList()
+      ..sort((a, b) => a.invoice.periodStart.compareTo(b.invoice.periodStart));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _tenantId != null) _suggestAmount(open);
     });
@@ -138,55 +144,66 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
             children: [
               AppCard(
                 onTap: widget.tenantId == null ? _pickTenant : null,
-                child: Row(children: [
-                  if (detail != null)
-                    PersonAvatar(name: detail.tenant.fullName, photoPath: detail.tenant.photoPath)
-                  else
-                    const CircleAvatar(radius: 22, child: Icon(Icons.person_search_outlined)),
-                  const SizedBox(width: Gap.md),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(detail?.tenant.fullName ?? 'Choose tenant', style: t.titleMedium),
-                      Text(
-                        detail == null
-                            ? 'Tap to search by name or phone'
-                            : '${detail.current?.label ?? 'No bed'} · ${totalDue > 0 ? '${Money.format(totalDue)} due' : 'No dues'}',
-                        style: t.bodySmall?.copyWith(color: totalDue > 0 ? AppColors.danger : AppColors.textMuted),
+                child: Row(
+                  children: [
+                    if (detail != null)
+                      PersonAvatar(name: detail.tenant.fullName, photoPath: detail.tenant.photoPath)
+                    else
+                      const CircleAvatar(radius: 22, child: Icon(Icons.person_search_outlined)),
+                    const SizedBox(width: Gap.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(detail?.tenant.fullName ?? 'Choose tenant', style: t.titleMedium),
+                          Text(
+                            detail == null
+                                ? 'Tap to search by name or phone'
+                                : '${detail.current?.label ?? 'No bed'} · ${totalDue > 0 ? '${Money.format(totalDue)} due' : 'No dues'}',
+                            style: t.bodySmall?.copyWith(color: totalDue > 0 ? AppColors.danger : AppColors.textMuted),
+                          ),
+                        ],
                       ),
-                    ]),
-                  ),
-                  if (widget.tenantId == null) const Icon(Icons.expand_more_rounded),
-                ]),
+                    ),
+                    if (widget.tenantId == null) const Icon(Icons.expand_more_rounded),
+                  ],
+                ),
               ),
               if (detail != null) ...[
                 if (open.isNotEmpty) ...[
                   const SectionHeader(title: 'Apply to'),
-                  Wrap(spacing: Gap.sm, runSpacing: Gap.sm, children: [
-                    ChoiceChip(
-                      label: Text('Oldest dues first · ${Money.format(totalDue)}'),
-                      selected: _invoiceId == null,
-                      showCheckmark: false,
-                      onSelected: (_) => setState(() {
-                        _invoiceId = null;
-                        _amountTouched = false;
-                      }),
-                    ),
-                    for (final v in open)
+                  Wrap(
+                    spacing: Gap.sm,
+                    runSpacing: Gap.sm,
+                    children: [
                       ChoiceChip(
-                        label: Text('${Dates.monthYear(v.invoice.periodStart)} · ${Money.format(v.balancePaise)}'),
-                        selected: _invoiceId == v.invoice.id,
+                        label: Text('Oldest dues first · ${Money.format(totalDue)}'),
+                        selected: _invoiceId == null,
                         showCheckmark: false,
                         onSelected: (_) => setState(() {
-                          _invoiceId = v.invoice.id;
+                          _invoiceId = null;
                           _amountTouched = false;
                         }),
                       ),
-                  ]),
+                      for (final v in open)
+                        ChoiceChip(
+                          label: Text('${Dates.monthYear(v.invoice.periodStart)} · ${Money.format(v.balancePaise)}'),
+                          selected: _invoiceId == v.invoice.id,
+                          showCheckmark: false,
+                          onSelected: (_) => setState(() {
+                            _invoiceId = v.invoice.id;
+                            _amountTouched = false;
+                          }),
+                        ),
+                    ],
+                  ),
                 ] else
                   Padding(
                     padding: const EdgeInsets.only(top: Gap.lg),
-                    child: Text('No open invoices. This payment will be kept as advance credit for the next invoice.',
-                        style: t.bodySmall?.copyWith(color: AppColors.textSecondary)),
+                    child: Text(
+                      'No open invoices. This payment will be kept as advance credit for the next invoice.',
+                      style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
+                    ),
                   ),
                 const SectionHeader(title: 'Payment'),
                 MoneyField(
@@ -207,7 +224,12 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
                   onSelectionChanged: (s) => setState(() => _method = s.first),
                 ),
                 const SizedBox(height: Gap.lg),
-                DateField(label: 'Payment date', value: _date, last: Dates.today(), onChanged: (d) => setState(() => _date = d)),
+                DateField(
+                  label: 'Payment date',
+                  value: _date,
+                  last: Dates.today(),
+                  onChanged: (d) => setState(() => _date = d),
+                ),
                 if (_method == PaymentMethod.upi) ...[
                   if (profile?.upiId != null && amountPaise > 0) ...[
                     const SizedBox(height: Gap.lg),
@@ -219,8 +241,10 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
                     ),
                   ] else if (profile?.upiId == null) ...[
                     const SizedBox(height: Gap.md),
-                    Text('Add your UPI ID in Settings → PG profile to show a QR code here.',
-                        style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
+                    Text(
+                      'Add your UPI ID in Settings → PG profile to show a QR code here.',
+                      style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+                    ),
                   ],
                   const SizedBox(height: Gap.lg),
                   TextFormField(
@@ -241,7 +265,9 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     title: const Text('I checked my UPI / bank app and the money has arrived'),
                     subtitle: Text(
-                      _verified ? 'Counted as collected now.' : 'Saved as awaiting verification. Not counted until you confirm it.',
+                      _verified
+                          ? 'Counted as collected now.'
+                          : 'Saved as awaiting verification. Not counted until you confirm it.',
                       style: TextStyle(color: _verified ? AppColors.success : AppColors.warning),
                     ),
                   ),
@@ -279,28 +305,36 @@ class _UpiQrCard extends StatelessWidget {
     final uri = ExportService.upiUri(upiId: upiId, payeeName: payee, amountPaise: amountPaise, note: note);
     final t = Theme.of(context).textTheme;
     return AppCard(
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.sm)),
-          child: QrImageView(data: uri.toString(), size: 112, padding: EdgeInsets.zero),
-        ),
-        const SizedBox(width: Gap.lg),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Tenant scans to pay', style: t.titleSmall),
-            const SizedBox(height: 2),
-            Text('${Money.format(amountPaise)} to $upiId', style: t.bodySmall?.copyWith(color: AppColors.textSecondary)),
-            const SizedBox(height: Gap.sm),
-            TextButton.icon(
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 40)),
-              onPressed: () => launchUrl(uri, mode: LaunchMode.externalApplication),
-              icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              label: const Text('Open UPI app'),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.sm)),
+            child: QrImageView(data: uri.toString(), size: 112, padding: EdgeInsets.zero),
+          ),
+          const SizedBox(width: Gap.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Tenant scans to pay', style: t.titleSmall),
+                const SizedBox(height: 2),
+                Text(
+                  '${Money.format(amountPaise)} to $upiId',
+                  style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: Gap.sm),
+                TextButton.icon(
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 40)),
+                  onPressed: () => launchUrl(uri, mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                  label: const Text('Open UPI app'),
+                ),
+              ],
             ),
-          ]),
-        ),
-      ]),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -321,51 +355,66 @@ class _TenantPickerSheetState extends ConsumerState<_TenantPickerSheet> {
     return SafeArea(
       child: SizedBox(
         height: MediaQuery.sizeOf(context).height * 0.8,
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
-            child: TextField(
-              autofocus: true,
-              onChanged: (v) => setState(() => _q = v.toLowerCase()),
-              decoration: const InputDecoration(hintText: 'Search tenant', prefixIcon: Icon(Icons.search_rounded)),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
+              child: TextField(
+                autofocus: true,
+                onChanged: (v) => setState(() => _q = v.toLowerCase()),
+                decoration: const InputDecoration(hintText: 'Search tenant', prefixIcon: Icon(Icons.search_rounded)),
+              ),
             ),
-          ),
-          Expanded(
-            child: list.when(
-              loading: () => const LoadingList(),
-              error: (e, _) => ErrorState(error: e),
-              data: (items) {
-                final f = items
-                    .where((i) => _q.isEmpty || i.tenant.fullName.toLowerCase().contains(_q) || i.tenant.phone.contains(_q))
-                    .toList()
-                  ..sort((a, b) => b.duesPaise.compareTo(a.duesPaise));
-                if (f.isEmpty) {
-                  return const EmptyState(icon: Icons.search_off_rounded, title: 'No tenants found', message: 'Only current tenants are listed.');
-                }
-                return ListView.builder(
-                  itemCount: f.length,
-                  itemBuilder: (_, i) {
-                    final it = f[i];
-                    return ListTile(
-                      minTileHeight: 64,
-                      leading: PersonAvatar(name: it.tenant.fullName, photoPath: it.tenant.photoPath),
-                      title: Text(it.tenant.fullName),
-                      subtitle: Text(it.roomLabel ?? 'No bed'),
-                      trailing: it.duesPaise > 0
-                          ? Text(Money.format(it.duesPaise),
-                              style: TextStyle(
+            Expanded(
+              child: list.when(
+                loading: () => const LoadingList(),
+                error: (e, _) => ErrorState(error: e),
+                data: (items) {
+                  final f =
+                      items
+                          .where(
+                            (i) =>
+                                _q.isEmpty ||
+                                i.tenant.fullName.toLowerCase().contains(_q) ||
+                                i.tenant.phone.contains(_q),
+                          )
+                          .toList()
+                        ..sort((a, b) => b.duesPaise.compareTo(a.duesPaise));
+                  if (f.isEmpty) {
+                    return const EmptyState(
+                      icon: Icons.search_off_rounded,
+                      title: 'No tenants found',
+                      message: 'Only current tenants are listed.',
+                    );
+                  }
+                  return ListView.builder(
+                    itemCount: f.length,
+                    itemBuilder: (_, i) {
+                      final it = f[i];
+                      return ListTile(
+                        minTileHeight: 64,
+                        leading: PersonAvatar(name: it.tenant.fullName, photoPath: it.tenant.photoPath),
+                        title: Text(it.tenant.fullName),
+                        subtitle: Text(it.roomLabel ?? 'No bed'),
+                        trailing: it.duesPaise > 0
+                            ? Text(
+                                Money.format(it.duesPaise),
+                                style: TextStyle(
                                   fontFeatures: AppTheme.tabular,
                                   fontWeight: FontWeight.w600,
-                                  color: it.overdue ? AppColors.danger : AppColors.textPrimary))
-                          : const Text('Paid up', style: TextStyle(color: AppColors.success)),
-                      onTap: () => Navigator.pop(context, it),
-                    );
-                  },
-                );
-              },
+                                  color: it.overdue ? AppColors.danger : AppColors.textPrimary,
+                                ),
+                              )
+                            : const Text('Paid up', style: TextStyle(color: AppColors.success)),
+                        onTap: () => Navigator.pop(context, it),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }

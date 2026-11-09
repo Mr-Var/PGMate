@@ -39,12 +39,19 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
     return detail.when(
       skipLoadingOnReload: true,
       loading: () => const Scaffold(body: LoadingList()),
-      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorState(error: e)),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(),
+        body: ErrorState(error: e),
+      ),
       data: (d) {
         if (d == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: const EmptyState(icon: Icons.search_off_rounded, title: 'Tenant not found', message: 'This record no longer exists.'),
+            body: const EmptyState(
+              icon: Icons.search_off_rounded,
+              title: 'Tenant not found',
+              message: 'This record no longer exists.',
+            ),
           );
         }
         final t = d.tenant;
@@ -62,9 +69,12 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
                 onSelected: (v) => _menu(v, d),
                 itemBuilder: (_) => [
                   const PopupMenuItem(value: 'ledger', child: Text('Ledger report')),
-                  if (d.isCurrent && d.current != null) const PopupMenuItem(value: 'transfer', child: Text('Transfer bed')),
-                  if (t.status == TenantStatus.noticeGiven) const PopupMenuItem(value: 'withdraw', child: Text('Withdraw notice')),
-                  if (t.status == TenantStatus.checkedOut) const PopupMenuItem(value: 'archive', child: Text('Archive')),
+                  if (d.isCurrent && d.current != null)
+                    const PopupMenuItem(value: 'transfer', child: Text('Transfer bed')),
+                  if (t.status == TenantStatus.noticeGiven)
+                    const PopupMenuItem(value: 'withdraw', child: Text('Withdraw notice')),
+                  if (t.status == TenantStatus.checkedOut)
+                    const PopupMenuItem(value: 'archive', child: Text('Archive')),
                 ],
               ),
             ],
@@ -111,11 +121,19 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
       case 'transfer':
         await showTransferSheet(context, ref, d);
       case 'withdraw':
-        if (await confirmAction(context, title: 'Withdraw notice?', message: '${d.tenant.fullName} will be marked active again.')) {
+        if (await confirmAction(
+          context,
+          title: 'Withdraw notice?',
+          message: '${d.tenant.fullName} will be marked active again.',
+        )) {
           if (mounted) await runGuarded(context, () => dao.withdrawNotice(d.tenant.id), success: 'Notice withdrawn');
         }
       case 'archive':
-        if (await confirmAction(context, title: 'Archive tenant?', message: 'Archived tenants are hidden from lists. Their history is kept.')) {
+        if (await confirmAction(
+          context,
+          title: 'Archive tenant?',
+          message: 'Archived tenants are hidden from lists. Their history is kept.',
+        )) {
           if (mounted) await runGuarded(context, () => dao.archive(d.tenant.id), success: 'Tenant archived');
         }
     }
@@ -141,17 +159,24 @@ class _Header extends StatelessWidget {
             children: [
               Text(t.fullName, style: text.headlineSmall),
               const SizedBox(height: 2),
-              Text(detail.current?.label ?? 'No bed assigned', style: text.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+              Text(
+                detail.current?.label ?? 'No bed assigned',
+                style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              ),
               const SizedBox(height: Gap.sm),
-              Wrap(spacing: Gap.sm, runSpacing: Gap.xs, children: [
-                StatusPill(label: t.status.label, color: color, background: bg),
-                if (t.status == TenantStatus.noticeGiven && t.expectedCheckoutDate != null)
-                  StatusPill(
-                    label: 'Leaves ${Dates.dayMonth(t.expectedCheckoutDate!)}',
-                    color: AppColors.info,
-                    background: AppColors.infoSoft,
-                  ),
-              ]),
+              Wrap(
+                spacing: Gap.sm,
+                runSpacing: Gap.xs,
+                children: [
+                  StatusPill(label: t.status.label, color: color, background: bg),
+                  if (t.status == TenantStatus.noticeGiven && t.expectedCheckoutDate != null)
+                    StatusPill(
+                      label: 'Leaves ${Dates.dayMonth(t.expectedCheckoutDate!)}',
+                      color: AppColors.info,
+                      background: AppColors.infoSoft,
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -173,27 +198,29 @@ class _Money extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = detail.tenant;
     final credit = detail.creditPaise > 0 ? detail.creditPaise : 0;
-    return Row(children: [
-      Expanded(
-        child: MetricTile(
-          icon: Icons.pending_actions_outlined,
-          label: 'Dues',
-          value: Money.format(detail.outstandingPaise),
-          caption: credit > 0 ? '${Money.format(credit)} advance' : 'Unpaid invoices',
-          tone: detail.outstandingPaise > 0 ? AppColors.danger : AppColors.success,
-          valueColor: detail.outstandingPaise > 0 ? AppColors.danger : null,
+    return Row(
+      children: [
+        Expanded(
+          child: MetricTile(
+            icon: Icons.pending_actions_outlined,
+            label: 'Dues',
+            value: Money.format(detail.outstandingPaise),
+            caption: credit > 0 ? '${Money.format(credit)} advance' : 'Unpaid invoices',
+            tone: detail.outstandingPaise > 0 ? AppColors.danger : AppColors.success,
+            valueColor: detail.outstandingPaise > 0 ? AppColors.danger : null,
+          ),
         ),
-      ),
-      const SizedBox(width: Gap.md),
-      Expanded(
-        child: MetricTile(
-          icon: Icons.savings_outlined,
-          label: 'Rent · Deposit',
-          value: Money.format(t.monthlyRentPaise),
-          caption: '${Money.format(t.securityDepositPaise)} deposit',
+        const SizedBox(width: Gap.md),
+        Expanded(
+          child: MetricTile(
+            icon: Icons.savings_outlined,
+            label: 'Rent · Deposit',
+            value: Money.format(t.monthlyRentPaise),
+            caption: '${Money.format(t.securityDepositPaise)} deposit',
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 }
 
@@ -230,11 +257,18 @@ class _Actions extends ConsumerWidget {
                 onTap: a.$3,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: Gap.md),
-                  child: Column(children: [
-                    Icon(a.$1, color: AppColors.primary),
-                    const SizedBox(height: 4),
-                    Text(a.$2, style: Theme.of(context).textTheme.labelMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ]),
+                  child: Column(
+                    children: [
+                      Icon(a.$1, color: AppColors.primary),
+                      const SizedBox(height: 4),
+                      Text(
+                        a.$2,
+                        style: Theme.of(context).textTheme.labelMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -249,7 +283,7 @@ class _Actions extends ConsumerWidget {
     final pg = ref.read(pgProfileProvider).value;
     final msg = detail.outstandingPaise > 0
         ? 'Hi ${t.fullName.split(' ').first}, a gentle reminder that ${Money.format(detail.outstandingPaise)} rent is pending'
-            '${pg == null ? '' : ' at ${pg.name}'}.${pg?.upiId == null ? '' : ' UPI: ${pg!.upiId}'} Thank you!'
+              '${pg == null ? '' : ' at ${pg.name}'}.${pg?.upiId == null ? '' : ' UPI: ${pg!.upiId}'} Thank you!'
         : 'Hi ${t.fullName.split(' ').first},';
     await ref.read(exportServiceProvider).whatsapp(msg, phone: t.phone);
   }
@@ -313,33 +347,48 @@ class _Stay extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppCard(
-          child: Column(children: [
-            for (final (i, r) in rows.indexed) ...[
-              if (i > 0) const Divider(height: Gap.xl),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                SizedBox(width: 120, child: Text(r.$1, style: text.bodyMedium?.copyWith(color: AppColors.textMuted))),
-                Expanded(child: Text(r.$2, style: text.bodyMedium)),
-              ]),
+          child: Column(
+            children: [
+              for (final (i, r) in rows.indexed) ...[
+                if (i > 0) const Divider(height: Gap.xl),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 120,
+                      child: Text(r.$1, style: text.bodyMedium?.copyWith(color: AppColors.textMuted)),
+                    ),
+                    Expanded(child: Text(r.$2, style: text.bodyMedium)),
+                  ],
+                ),
+              ],
             ],
-          ]),
+          ),
         ),
         const SectionHeader(title: 'Bed history'),
         if (detail.history.isEmpty)
           const _Inline(text: 'No bed assigned yet.')
         else
-          TileGroup(children: [
-            for (final a in detail.history)
-              ListTile(
-                leading: Icon(a.allocation.isActive ? Icons.bed_rounded : Icons.history_rounded,
-                    color: a.allocation.isActive ? AppColors.primary : AppColors.textMuted),
-                title: Text(a.label),
-                subtitle: Text(
-                  '${Dates.short(a.allocation.startDate)} – ${a.allocation.endDate == null ? 'now' : Dates.short(a.allocation.endDate!)}'
-                  '${a.allocation.endReason == null ? '' : ' · ${a.allocation.endReason}'}',
+          TileGroup(
+            children: [
+              for (final a in detail.history)
+                ListTile(
+                  leading: Icon(
+                    a.allocation.isActive ? Icons.bed_rounded : Icons.history_rounded,
+                    color: a.allocation.isActive ? AppColors.primary : AppColors.textMuted,
+                  ),
+                  title: Text(a.label),
+                  subtitle: Text(
+                    '${Dates.short(a.allocation.startDate)} – ${a.allocation.endDate == null ? 'now' : Dates.short(a.allocation.endDate!)}'
+                    '${a.allocation.endReason == null ? '' : ' · ${a.allocation.endReason}'}',
+                  ),
+                  trailing: Text(
+                    Money.format(a.allocation.rentPaise),
+                    style: const TextStyle(fontFeatures: AppTheme.tabular),
+                  ),
                 ),
-                trailing: Text(Money.format(a.allocation.rentPaise), style: const TextStyle(fontFeatures: AppTheme.tabular)),
-              ),
-          ]),
+            ],
+          ),
       ],
     );
   }
@@ -354,22 +403,31 @@ class _Documents extends StatelessWidget {
     final docs = <(String, String, IconData)>[
       if (tenant.photoPath != null) ('Photo', tenant.photoPath!, Icons.portrait_outlined),
       if (tenant.idProofPath != null)
-        ('${tenant.idProofType ?? 'ID proof'}${tenant.idProofNumber == null ? '' : ' · ${tenant.idProofNumber}'}', tenant.idProofPath!,
-            Icons.badge_outlined),
+        (
+          '${tenant.idProofType ?? 'ID proof'}${tenant.idProofNumber == null ? '' : ' · ${tenant.idProofNumber}'}',
+          tenant.idProofPath!,
+          Icons.badge_outlined,
+        ),
     ];
     if (docs.isEmpty) {
-      return _Inline(text: 'No documents uploaded. Add a photo or ID proof from Edit details.', onTap: () => context.push('/tenants/${tenant.id}/edit'));
+      return _Inline(
+        text: 'No documents uploaded. Add a photo or ID proof from Edit details.',
+        onTap: () => context.push('/tenants/${tenant.id}/edit'),
+      );
     }
-    return TileGroup(children: [
-      for (final d in docs)
-        ListTile(
-          leading: Icon(d.$3, color: AppColors.primary),
-          title: Text(d.$1),
-          subtitle: const Text('Stored privately on this phone'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.push(Uri(path: '/document', queryParameters: {'path': d.$2, 'title': d.$1}).toString()),
-        ),
-    ]);
+    return TileGroup(
+      children: [
+        for (final d in docs)
+          ListTile(
+            leading: Icon(d.$3, color: AppColors.primary),
+            title: Text(d.$1),
+            subtitle: const Text('Stored privately on this phone'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () =>
+                context.push(Uri(path: '/document', queryParameters: {'path': d.$2, 'title': d.$1}).toString()),
+          ),
+      ],
+    );
   }
 }
 
@@ -384,7 +442,10 @@ class _Complaints extends ConsumerWidget {
       loading: () => const SkeletonBox(height: 120, radius: Radii.lg),
       error: (e, _) => Text('$e'),
       data: (l) => l.isEmpty
-          ? _Inline(text: 'No complaints from this tenant.', onTap: () => context.push('/more/complaints/new?tenant=$tenantId'))
+          ? _Inline(
+              text: 'No complaints from this tenant.',
+              onTap: () => context.push('/more/complaints/new?tenant=$tenantId'),
+            )
           : TileGroup(children: [for (final c in l) ComplaintTile(view: c, showTenant: false)]),
     );
   }

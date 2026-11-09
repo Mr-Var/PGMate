@@ -77,8 +77,7 @@ class CheckoutPreview {
   final int deductionsPaise;
 
   /// Total the tenant owes after the final-month correction and deductions.
-  int get totalDuesPaise =>
-      max(0, outstandingPaise + (finalMonthRentPaise - finalMonthInvoiced) + deductionsPaise);
+  int get totalDuesPaise => max(0, outstandingPaise + (finalMonthRentPaise - finalMonthInvoiced) + deductionsPaise);
 
   int get _afterCredit => max(0, totalDuesPaise - creditPaise);
   int get creditLeftPaise => max(0, creditPaise - totalDuesPaise);
@@ -137,17 +136,9 @@ class ReceiptData {
   final int creditPaise;
 }
 
-@DriftAccessor(tables: [
-  Tenants,
-  Allocations,
-  Beds,
-  Rooms,
-  RentInvoices,
-  Payments,
-  PaymentAllocations,
-  AuditLogs,
-  PgProfiles,
-])
+@DriftAccessor(
+  tables: [Tenants, Allocations, Beds, Rooms, RentInvoices, Payments, PaymentAllocations, AuditLogs, PgProfiles],
+)
 class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
   BillingDao(super.db);
 
@@ -165,12 +156,13 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
   }
 
   Future<RentInvoice?> invoiceFor(int tenantId, int year, int month) {
-    return (select(rentInvoices)
-          ..where((i) =>
+    return (select(rentInvoices)..where(
+          (i) =>
               i.tenantId.equals(tenantId) &
               i.periodYear.equals(year) &
               i.periodMonth.equals(month) &
-              i.status.equalsValue(InvoiceStatus.cancelled).not()))
+              i.status.equalsValue(InvoiceStatus.cancelled).not(),
+        ))
         .getSingleOrNull();
   }
 
@@ -182,9 +174,7 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       final monthEnd = DateTime(year, month + 1);
       final rows = await (select(tenants).join([
         innerJoin(allocations, allocations.tenantId.equalsExp(tenants.id) & allocations.isActive.equals(true)),
-      ])
-            ..where(tenants.status.isInValues(_current) & tenants.joiningDate.isSmallerThanValue(monthEnd)))
-          .get();
+      ])..where(tenants.status.isInValues(_current) & tenants.joiningDate.isSmallerThanValue(monthEnd))).get();
 
       var created = 0;
       var skipped = 0;
@@ -196,7 +186,9 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
           continue;
         }
         final joinedThisMonth = !t.joiningDate.isBefore(monthStart);
-        final rent = joinedThisMonth ? BillingMath.joiningMonthRent(t.monthlyRentPaise, t.joiningDate) : t.monthlyRentPaise;
+        final rent = joinedThisMonth
+            ? BillingMath.joiningMonthRent(t.monthlyRentPaise, t.joiningDate)
+            : t.monthlyRentPaise;
         await _insertInvoice(
           tenantId: t.id,
           allocationId: a.id,
@@ -234,9 +226,9 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       if (rentPaise + additionalChargesPaise - discountPaise < 0) {
         throw RuleException('Discount cannot be more than the invoice amount.');
       }
-      final alloc = await (select(allocations)
-            ..where((a) => a.tenantId.equals(tenantId) & a.isActive.equals(true)))
-          .getSingleOrNull();
+      final alloc = await (select(
+        allocations,
+      )..where((a) => a.tenantId.equals(tenantId) & a.isActive.equals(true))).getSingleOrNull();
       final id = await _insertInvoice(
         tenantId: tenantId,
         allocationId: alloc?.id,
@@ -268,23 +260,25 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
     DateTime? today,
   }) async {
     final total = rentPaise + additionalPaise - discountPaise;
-    final id = await into(rentInvoices).insert(RentInvoicesCompanion.insert(
-      invoiceNumber: await _invoiceNumber(year, month),
-      tenantId: tenantId,
-      allocationId: Value(allocationId),
-      periodYear: year,
-      periodMonth: month,
-      periodStart: DateTime(year, month),
-      periodEnd: DateTime(year, month + 1),
-      rentPaise: rentPaise,
-      additionalChargesPaise: Value(additionalPaise),
-      discountPaise: Value(discountPaise),
-      totalPaise: total,
-      dueDate: dueDate,
-      isProrated: Value(prorated),
-      notes: Value(notes),
-      status: Value(_statusFor(total, 0, dueDate, today)),
-    ));
+    final id = await into(rentInvoices).insert(
+      RentInvoicesCompanion.insert(
+        invoiceNumber: await _invoiceNumber(year, month),
+        tenantId: tenantId,
+        allocationId: Value(allocationId),
+        periodYear: year,
+        periodMonth: month,
+        periodStart: DateTime(year, month),
+        periodEnd: DateTime(year, month + 1),
+        rentPaise: rentPaise,
+        additionalChargesPaise: Value(additionalPaise),
+        discountPaise: Value(discountPaise),
+        totalPaise: total,
+        dueDate: dueDate,
+        isProrated: Value(prorated),
+        notes: Value(notes),
+        status: Value(_statusFor(total, 0, dueDate, today)),
+      ),
+    );
     await db.settingsDao.log('invoice', id, 'create', Money.format(total));
     return id;
   }
@@ -296,23 +290,32 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
   }
 
   /// Changes extra charges / discount on an open invoice. Rent stays frozen.
-  Future<void> adjustInvoice(int invoiceId, {required int additionalChargesPaise, required int discountPaise, String? notes}) {
+  Future<void> adjustInvoice(
+    int invoiceId, {
+    required int additionalChargesPaise,
+    required int discountPaise,
+    String? notes,
+  }) {
     return transaction(() async {
       final inv = await (select(rentInvoices)..where((i) => i.id.equals(invoiceId))).getSingle();
       if (inv.status == InvoiceStatus.cancelled) throw RuleException('Cancelled invoices cannot be changed.');
       final total = inv.rentPaise + additionalChargesPaise - discountPaise;
       if (total < 0) throw RuleException('Discount cannot be more than the invoice amount.');
       if (total < inv.paidPaise) {
-        throw RuleException('${Money.format(inv.paidPaise)} is already paid on this invoice. '
-            'The total cannot go below that; reverse a payment first.');
+        throw RuleException(
+          '${Money.format(inv.paidPaise)} is already paid on this invoice. '
+          'The total cannot go below that; reverse a payment first.',
+        );
       }
-      await (update(rentInvoices)..where((i) => i.id.equals(invoiceId))).write(RentInvoicesCompanion(
-        additionalChargesPaise: Value(additionalChargesPaise),
-        discountPaise: Value(discountPaise),
-        totalPaise: Value(total),
-        notes: notes == null ? const Value.absent() : Value(notes),
-        updatedAt: Value(DateTime.now()),
-      ));
+      await (update(rentInvoices)..where((i) => i.id.equals(invoiceId))).write(
+        RentInvoicesCompanion(
+          additionalChargesPaise: Value(additionalChargesPaise),
+          discountPaise: Value(discountPaise),
+          totalPaise: Value(total),
+          notes: notes == null ? const Value.absent() : Value(notes),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
       await _recompute(invoiceId);
       await applyCredit(inv.tenantId);
       await db.settingsDao.log('invoice', invoiceId, 'adjust', 'total ${Money.format(total)}');
@@ -326,12 +329,14 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       if (inv.paidPaise > 0) {
         throw RuleException('This invoice has payments. Reverse them before cancelling.');
       }
-      await (update(rentInvoices)..where((i) => i.id.equals(invoiceId))).write(RentInvoicesCompanion(
-        status: const Value(InvoiceStatus.cancelled),
-        cancelledAt: Value(DateTime.now()),
-        cancelReason: Value(reason),
-        updatedAt: Value(DateTime.now()),
-      ));
+      await (update(rentInvoices)..where((i) => i.id.equals(invoiceId))).write(
+        RentInvoicesCompanion(
+          status: const Value(InvoiceStatus.cancelled),
+          cancelledAt: Value(DateTime.now()),
+          cancelReason: Value(reason),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
       await db.settingsDao.log('invoice', invoiceId, 'cancel', reason);
     });
   }
@@ -344,21 +349,22 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       variables: [Variable.withInt(invoiceId)],
     ).getSingle();
     final paid = paidRow.read<int>('v');
-    final status = inv.status == InvoiceStatus.cancelled ? InvoiceStatus.cancelled : _statusFor(inv.totalPaise, paid, inv.dueDate, today);
-    await (update(rentInvoices)..where((i) => i.id.equals(invoiceId))).write(RentInvoicesCompanion(
-      paidPaise: Value(paid),
-      status: Value(status),
-      updatedAt: Value(DateTime.now()),
-    ));
+    final status = inv.status == InvoiceStatus.cancelled
+        ? InvoiceStatus.cancelled
+        : _statusFor(inv.totalPaise, paid, inv.dueDate, today);
+    await (update(rentInvoices)..where((i) => i.id.equals(invoiceId))).write(
+      RentInvoicesCompanion(paidPaise: Value(paid), status: Value(status), updatedAt: Value(DateTime.now())),
+    );
   }
 
   /// Moves unpaid invoices past their due date to overdue. Safe to call often.
   Future<int> refreshOverdue([DateTime? today]) {
     final t = Dates.today(today);
-    return (update(rentInvoices)
-          ..where((i) =>
+    return (update(rentInvoices)..where(
+          (i) =>
               i.status.isInValues([InvoiceStatus.unpaid, InvoiceStatus.partiallyPaid]) &
-              i.dueDate.isSmallerThanValue(t)))
+              i.dueDate.isSmallerThanValue(t),
+        ))
         .write(const RentInvoicesCompanion(status: Value(InvoiceStatus.overdue)));
   }
 
@@ -387,26 +393,28 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
     return transaction(() async {
       final utr = input.upiReference?.trim().toUpperCase();
       if (utr != null && utr.isNotEmpty) {
-        final dup = await (select(payments)
-              ..where((p) => p.upiReference.equals(utr) & p.kind.equalsValue(PaymentKind.payment)))
-            .getSingleOrNull();
+        final dup = await (select(
+          payments,
+        )..where((p) => p.upiReference.equals(utr) & p.kind.equalsValue(PaymentKind.payment))).getSingleOrNull();
         if (dup != null) {
           throw RuleException('UTR $utr is already recorded on receipt ${dup.receiptNumber}.');
         }
       }
       final confirmed = input.method != PaymentMethod.upi || input.upiVerified;
-      final id = await into(payments).insert(PaymentsCompanion.insert(
-        transactionId: _txnId(),
-        receiptNumber: await _receiptNumber(input.date),
-        tenantId: input.tenantId,
-        amountPaise: input.amountPaise,
-        method: input.method,
-        upiReference: Value(utr == null || utr.isEmpty ? null : utr),
-        paymentDate: input.date,
-        status: confirmed ? PaymentStatus.confirmed : PaymentStatus.pendingVerification,
-        notes: Value(input.notes?.trim().isEmpty ?? true ? null : input.notes!.trim()),
-        verifiedAt: Value(confirmed && input.method == PaymentMethod.upi ? DateTime.now() : null),
-      ));
+      final id = await into(payments).insert(
+        PaymentsCompanion.insert(
+          transactionId: _txnId(),
+          receiptNumber: await _receiptNumber(input.date),
+          tenantId: input.tenantId,
+          amountPaise: input.amountPaise,
+          method: input.method,
+          upiReference: Value(utr == null || utr.isEmpty ? null : utr),
+          paymentDate: input.date,
+          status: confirmed ? PaymentStatus.confirmed : PaymentStatus.pendingVerification,
+          notes: Value(input.notes?.trim().isEmpty ?? true ? null : input.notes!.trim()),
+          verifiedAt: Value(confirmed && input.method == PaymentMethod.upi ? DateTime.now() : null),
+        ),
+      );
       if (confirmed) await _allocate(id, input.tenantId, preferredInvoiceId: input.invoiceId);
       await db.settingsDao.log('payment', id, 'create', '${input.method.name} ${Money.format(input.amountPaise)}');
       return id;
@@ -416,14 +424,15 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
   /// Possible duplicate: same tenant, method and amount on the same day.
   Future<Payment?> findSimilarPayment(int tenantId, int amountPaise, DateTime date) {
     final day = Dates.today(date);
-    return (select(payments)
-          ..where((p) =>
+    return (select(payments)..where(
+          (p) =>
               p.tenantId.equals(tenantId) &
               p.amountPaise.equals(amountPaise) &
               p.kind.equalsValue(PaymentKind.payment) &
               p.status.equalsValue(PaymentStatus.rejected).not() &
               p.paymentDate.isBiggerOrEqualValue(day) &
-              p.paymentDate.isSmallerThanValue(day.add(const Duration(days: 1)))))
+              p.paymentDate.isSmallerThanValue(day.add(const Duration(days: 1))),
+        ))
         .get()
         .then((l) => l.firstOrNull);
   }
@@ -432,10 +441,9 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
     return transaction(() async {
       final p = await (select(payments)..where((x) => x.id.equals(paymentId))).getSingle();
       if (p.status != PaymentStatus.pendingVerification) return;
-      await (update(payments)..where((x) => x.id.equals(paymentId))).write(PaymentsCompanion(
-        status: const Value(PaymentStatus.confirmed),
-        verifiedAt: Value(DateTime.now()),
-      ));
+      await (update(payments)..where((x) => x.id.equals(paymentId))).write(
+        PaymentsCompanion(status: const Value(PaymentStatus.confirmed), verifiedAt: Value(DateTime.now())),
+      );
       await _allocate(paymentId, p.tenantId);
       await db.settingsDao.log('payment', paymentId, 'verify');
     });
@@ -447,10 +455,12 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       if (p.status != PaymentStatus.pendingVerification) {
         throw RuleException('Only payments awaiting verification can be rejected.');
       }
-      await (update(payments)..where((x) => x.id.equals(paymentId))).write(PaymentsCompanion(
-        status: const Value(PaymentStatus.rejected),
-        notes: Value([p.notes, 'Rejected: $reason'].whereType<String>().join('\n')),
-      ));
+      await (update(payments)..where((x) => x.id.equals(paymentId))).write(
+        PaymentsCompanion(
+          status: const Value(PaymentStatus.rejected),
+          notes: Value([p.notes, 'Rejected: $reason'].whereType<String>().join('\n')),
+        ),
+      );
       await db.settingsDao.log('payment', paymentId, 'reject', reason);
     });
   }
@@ -468,18 +478,20 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       }
       if (await isReversed(paymentId)) throw RuleException('This payment is already reversed.');
       final when = date ?? DateTime.now();
-      final revId = await into(payments).insert(PaymentsCompanion.insert(
-        transactionId: _txnId(),
-        receiptNumber: await _receiptNumber(when, reversal: true),
-        tenantId: p.tenantId,
-        amountPaise: -p.amountPaise,
-        method: p.method,
-        paymentDate: when,
-        status: PaymentStatus.confirmed,
-        kind: const Value(PaymentKind.reversal),
-        reversesPaymentId: Value(paymentId),
-        notes: Value('Reversal of ${p.receiptNumber}: $reason'),
-      ));
+      final revId = await into(payments).insert(
+        PaymentsCompanion.insert(
+          transactionId: _txnId(),
+          receiptNumber: await _receiptNumber(when, reversal: true),
+          tenantId: p.tenantId,
+          amountPaise: -p.amountPaise,
+          method: p.method,
+          paymentDate: when,
+          status: PaymentStatus.confirmed,
+          kind: const Value(PaymentKind.reversal),
+          reversesPaymentId: Value(paymentId),
+          notes: Value('Reversal of ${p.receiptNumber}: $reason'),
+        ),
+      );
       final allocs = await customSelect(
         'SELECT invoice_id, SUM(amount_paise) AS a FROM payment_allocations WHERE payment_id = ? GROUP BY invoice_id',
         variables: [Variable.withInt(paymentId)],
@@ -488,11 +500,8 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
         final amount = a.read<int>('a');
         if (amount == 0) continue;
         final invoiceId = a.read<int>('invoice_id');
-        await into(paymentAllocations).insert(PaymentAllocationsCompanion.insert(
-          paymentId: revId,
-          invoiceId: invoiceId,
-          amountPaise: -amount,
-        ));
+        await into(paymentAllocations)
+            .insert(PaymentAllocationsCompanion.insert(paymentId: revId, invoiceId: invoiceId, amountPaise: -amount));
         await _recompute(invoiceId);
       }
       await db.settingsDao.log('payment', paymentId, 'reverse', reason);
@@ -514,24 +523,24 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
     var remaining = await _unallocated(paymentId);
     if (limit != null) remaining = min(remaining, limit);
     if (remaining <= 0) return;
-    final open = await (select(rentInvoices)
-          ..where((i) =>
-              i.tenantId.equals(tenantId) &
-              i.status.equalsValue(InvoiceStatus.cancelled).not() &
-              i.totalPaise.isBiggerThan(i.paidPaise))
-          ..orderBy([(i) => OrderingTerm.asc(i.periodStart), (i) => OrderingTerm.asc(i.id)]))
-        .get();
+    final open =
+        await (select(rentInvoices)
+              ..where(
+                (i) =>
+                    i.tenantId.equals(tenantId) &
+                    i.status.equalsValue(InvoiceStatus.cancelled).not() &
+                    i.totalPaise.isBiggerThan(i.paidPaise),
+              )
+              ..orderBy([(i) => OrderingTerm.asc(i.periodStart), (i) => OrderingTerm.asc(i.id)]))
+            .get();
     if (preferredInvoiceId != null) {
       open.sort((a, b) => a.id == preferredInvoiceId ? -1 : (b.id == preferredInvoiceId ? 1 : 0));
     }
     for (final inv in open) {
       if (remaining <= 0) break;
       final take = min(remaining, inv.totalPaise - inv.paidPaise);
-      await into(paymentAllocations).insert(PaymentAllocationsCompanion.insert(
-        paymentId: paymentId,
-        invoiceId: inv.id,
-        amountPaise: take,
-      ));
+      await into(paymentAllocations)
+          .insert(PaymentAllocationsCompanion.insert(paymentId: paymentId, invoiceId: inv.id, amountPaise: take));
       await _recompute(inv.id);
       remaining -= take;
     }
@@ -623,8 +632,9 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
 
       // 1. Final month rent: correct the existing invoice or create a prorated one.
       final existing = await invoiceFor(tenantId, date.year, date.month);
-      final alloc = await (select(allocations)..where((a) => a.tenantId.equals(tenantId) & a.isActive.equals(true)))
-          .getSingleOrNull();
+      final alloc = await (select(
+        allocations,
+      )..where((a) => a.tenantId.equals(tenantId) & a.isActive.equals(true))).getSingleOrNull();
       int? finalInvoiceId = existing?.id;
       if (existing != null) {
         final reduceBy = max(0, existing.rentPaise - preview.finalMonthRentPaise);
@@ -635,15 +645,21 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
           // Return the overpaid part of this invoice to credit.
           await _releaseFromInvoice(existing.id, existing.paidPaise - newTotal);
         }
-        await (update(rentInvoices)..where((i) => i.id.equals(existing.id))).write(RentInvoicesCompanion(
-          discountPaise: Value(newDiscount),
-          additionalChargesPaise: Value(newAdditional),
-          totalPaise: Value(newTotal),
-          notes: Value([existing.notes, 'Final month: ${preview.daysInFinalMonth} days', ?deductionNote]
-              .whereType<String>()
-              .join('\n')),
-          updatedAt: Value(DateTime.now()),
-        ));
+        await (update(rentInvoices)..where((i) => i.id.equals(existing.id))).write(
+          RentInvoicesCompanion(
+            discountPaise: Value(newDiscount),
+            additionalChargesPaise: Value(newAdditional),
+            totalPaise: Value(newTotal),
+            notes: Value(
+              [
+                existing.notes,
+                'Final month: ${preview.daysInFinalMonth} days',
+                ?deductionNote,
+              ].whereType<String>().join('\n'),
+            ),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
         await _recompute(existing.id);
       } else if (preview.finalMonthRentPaise > 0 || deductionsPaise > 0) {
         finalInvoiceId = await _insertInvoice(
@@ -664,16 +680,18 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       final dues = await tenantOutstanding(tenantId);
       final depositUsed = min(t.securityDepositPaise, dues);
       if (depositUsed > 0) {
-        final id = await into(payments).insert(PaymentsCompanion.insert(
-          transactionId: _txnId(),
-          receiptNumber: await _receiptNumber(date),
-          tenantId: tenantId,
-          amountPaise: depositUsed,
-          method: PaymentMethod.deposit,
-          paymentDate: date,
-          status: PaymentStatus.confirmed,
-          notes: const Value('Adjusted from security deposit at checkout'),
-        ));
+        final id = await into(payments).insert(
+          PaymentsCompanion.insert(
+            transactionId: _txnId(),
+            receiptNumber: await _receiptNumber(date),
+            tenantId: tenantId,
+            amountPaise: depositUsed,
+            method: PaymentMethod.deposit,
+            paymentDate: date,
+            status: PaymentStatus.confirmed,
+            notes: const Value('Adjusted from security deposit at checkout'),
+          ),
+        );
         await _allocate(id, tenantId, preferredInvoiceId: finalInvoiceId);
       }
       final depositRefund = t.securityDepositPaise - depositUsed;
@@ -681,40 +699,47 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       // 3. Refund unused advance credit as a negative entry.
       final creditLeft = await tenantCredit(tenantId);
       if (creditLeft > 0) {
-        await into(payments).insert(PaymentsCompanion.insert(
-          transactionId: _txnId(),
-          receiptNumber: await _receiptNumber(date, reversal: true),
-          tenantId: tenantId,
-          amountPaise: -creditLeft,
-          method: refundMethod,
-          paymentDate: date,
-          status: PaymentStatus.confirmed,
-          kind: const Value(PaymentKind.reversal),
-          notes: const Value('Refund of unused advance at checkout'),
-        ));
+        await into(payments).insert(
+          PaymentsCompanion.insert(
+            transactionId: _txnId(),
+            receiptNumber: await _receiptNumber(date, reversal: true),
+            tenantId: tenantId,
+            amountPaise: -creditLeft,
+            method: refundMethod,
+            paymentDate: date,
+            status: PaymentStatus.confirmed,
+            kind: const Value(PaymentKind.reversal),
+            notes: const Value('Refund of unused advance at checkout'),
+          ),
+        );
       }
 
       // 4. Close the allocation and free the bed.
       if (alloc != null) {
-        await (update(allocations)..where((a) => a.id.equals(alloc.id))).write(AllocationsCompanion(
-          isActive: const Value(false),
-          endDate: Value(date),
-          endReason: const Value('checkout'),
-        ));
-        await (update(beds)..where((b) => b.id.equals(alloc.bedId)))
-            .write(BedsCompanion(status: const Value(BedStatus.available), updatedAt: Value(DateTime.now())));
+        await (update(allocations)..where((a) => a.id.equals(alloc.id))).write(
+          AllocationsCompanion(isActive: const Value(false), endDate: Value(date), endReason: const Value('checkout')),
+        );
+        await (update(beds)..where((b) => b.id.equals(alloc.bedId))).write(
+          BedsCompanion(status: const Value(BedStatus.available), updatedAt: Value(DateTime.now())),
+        );
       }
       final toCollect = await tenantOutstanding(tenantId);
-      await (update(tenants)..where((x) => x.id.equals(tenantId))).write(TenantsCompanion(
-        status: const Value(TenantStatus.checkedOut),
-        checkoutDate: Value(date),
-        depositAdjustedPaise: Value(depositUsed),
-        depositRefundedPaise: Value(depositRefund),
-        checkoutNotes: Value(notes),
-        updatedAt: Value(DateTime.now()),
-      ));
-      await db.settingsDao.log('tenant', tenantId, 'checkout',
-          'deposit used ${Money.format(depositUsed)}, refunded ${Money.format(depositRefund + max(0, creditLeft))}, due ${Money.format(toCollect)}');
+      await (update(tenants)..where((x) => x.id.equals(tenantId))).write(
+        TenantsCompanion(
+          status: const Value(TenantStatus.checkedOut),
+          checkoutDate: Value(date),
+          depositAdjustedPaise: Value(depositUsed),
+          depositRefundedPaise: Value(depositRefund),
+          checkoutNotes: Value(notes),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      await db.settingsDao.log(
+        'tenant',
+        tenantId,
+        'checkout',
+        'deposit used ${Money.format(depositUsed)}, refunded ${Money.format(depositRefund + max(0, creditLeft))}, due ${Money.format(toCollect)}',
+      );
       return CheckoutResult(refundPaise: depositRefund + max(0, creditLeft), toCollectPaise: toCollect);
     });
   }
@@ -731,11 +756,13 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
     for (final r in rows) {
       if (left <= 0) break;
       final take = min(left, r.read<int>('a'));
-      await into(paymentAllocations).insert(PaymentAllocationsCompanion.insert(
-        paymentId: r.read<int>('payment_id'),
-        invoiceId: invoiceId,
-        amountPaise: -take,
-      ));
+      await into(paymentAllocations).insert(
+        PaymentAllocationsCompanion.insert(
+          paymentId: r.read<int>('payment_id'),
+          invoiceId: invoiceId,
+          amountPaise: -take,
+        ),
+      );
       left -= take;
     }
   }
@@ -768,10 +795,12 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
          ORDER BY i.period_start DESC, t.full_name''',
       variables: vars,
       readsFrom: {rentInvoices, tenants, allocations},
-    ).watch().asyncMap((rows) async => [
-          for (final r in rows)
-            InvoiceView(await rentInvoices.mapFromRow(r), r.read<String>('tenant_name'), r.read<String?>('room_label')),
-        ]);
+    ).watch().asyncMap(
+      (rows) async => [
+        for (final r in rows)
+          InvoiceView(await rentInvoices.mapFromRow(r), r.read<String>('tenant_name'), r.read<String?>('room_label')),
+      ],
+    );
   }
 
   Stream<List<PaymentView>> watchPayments({DateRange? range, int? tenantId, PaymentStatus? status}) {
@@ -797,22 +826,34 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
          ORDER BY p.payment_date DESC, p.id DESC LIMIT 500''',
       variables: vars,
       readsFrom: {payments, tenants},
-    ).watch().asyncMap((rows) async => [
-          for (final r in rows)
-            PaymentView(await payments.mapFromRow(r), r.read<String>('tenant_name'), isReversed: r.read<bool>('reversed')),
-        ]);
+    ).watch().asyncMap(
+      (rows) async => [
+        for (final r in rows)
+          PaymentView(
+            await payments.mapFromRow(r),
+            r.read<String>('tenant_name'),
+            isReversed: r.read<bool>('reversed'),
+          ),
+      ],
+    );
   }
 
   /// One invoice with the payments applied to it.
   Stream<(InvoiceView, List<(Payment, int)>)?> watchInvoice(int id) {
-    return customSelect('SELECT 1', readsFrom: {rentInvoices, paymentAllocations, payments, tenants}).watch().asyncMap((_) async {
+    return customSelect('SELECT 1', readsFrom: {rentInvoices, paymentAllocations, payments, tenants}).watch().asyncMap((
+      _,
+    ) async {
       final r = await customSelect(
         '''SELECT i.*, t.full_name AS tenant_name, $_roomLabelSql AS room_label
            FROM rent_invoices i JOIN tenants t ON t.id = i.tenant_id WHERE i.id = ?''',
         variables: [Variable.withInt(id)],
       ).getSingleOrNull();
       if (r == null) return null;
-      final view = InvoiceView(await rentInvoices.mapFromRow(r), r.read<String>('tenant_name'), r.read<String?>('room_label'));
+      final view = InvoiceView(
+        await rentInvoices.mapFromRow(r),
+        r.read<String>('tenant_name'),
+        r.read<String?>('room_label'),
+      );
       final allocs = await customSelect(
         '''SELECT p.*, SUM(pa.amount_paise) AS applied FROM payment_allocations pa
            JOIN payments p ON p.id = pa.payment_id WHERE pa.invoice_id = ?
@@ -825,21 +866,21 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
 
   /// Whether invoices exist for the month (to prompt generation).
   Stream<int> watchInvoiceCount(int year, int month) => customSelect(
-        "SELECT COUNT(*) AS c FROM rent_invoices WHERE period_year = ? AND period_month = ? AND status <> 'cancelled'",
-        variables: [Variable.withInt(year), Variable.withInt(month)],
-        readsFrom: {rentInvoices},
-      ).watchSingle().map((r) => r.read<int>('c'));
+    "SELECT COUNT(*) AS c FROM rent_invoices WHERE period_year = ? AND period_month = ? AND status <> 'cancelled'",
+    variables: [Variable.withInt(year), Variable.withInt(month)],
+    readsFrom: {rentInvoices},
+  ).watchSingle().map((r) => r.read<int>('c'));
 
   /// Current tenants with a bed but no invoice for the month yet.
   Stream<int> watchUnbilledCount(int year, int month) => customSelect(
-        '''SELECT COUNT(*) AS c FROM tenants t
+    '''SELECT COUNT(*) AS c FROM tenants t
            JOIN allocations a ON a.tenant_id = t.id AND a.is_active = 1
            WHERE t.status IN ('newTenant','active','noticeGiven') AND t.joining_date < ?
              AND NOT EXISTS (SELECT 1 FROM rent_invoices i WHERE i.tenant_id = t.id AND i.period_year = ?
                                AND i.period_month = ? AND i.status <> 'cancelled')''',
-        variables: [Variable.withDateTime(DateTime(year, month + 1)), Variable.withInt(year), Variable.withInt(month)],
-        readsFrom: {tenants, allocations, rentInvoices},
-      ).watchSingle().map((r) => r.read<int>('c'));
+    variables: [Variable.withDateTime(DateTime(year, month + 1)), Variable.withInt(year), Variable.withInt(month)],
+    readsFrom: {tenants, allocations, rentInvoices},
+  ).watchSingle().map((r) => r.read<int>('c'));
 
   Stream<PaymentView?> watchPayment(int id) {
     return customSelect(
@@ -848,9 +889,15 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
          FROM payments p JOIN tenants t ON t.id = p.tenant_id WHERE p.id = ?''',
       variables: [Variable.withInt(id)],
       readsFrom: {payments, tenants},
-    ).watchSingleOrNull().asyncMap((r) async => r == null
-        ? null
-        : PaymentView(await payments.mapFromRow(r), r.read<String>('tenant_name'), isReversed: r.read<bool>('reversed')));
+    ).watchSingleOrNull().asyncMap(
+      (r) async => r == null
+          ? null
+          : PaymentView(
+              await payments.mapFromRow(r),
+              r.read<String>('tenant_name'),
+              isReversed: r.read<bool>('reversed'),
+            ),
+    );
   }
 
   Future<ReceiptData> receiptData(int paymentId) async {

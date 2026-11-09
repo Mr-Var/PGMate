@@ -32,10 +32,14 @@ class FormSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            if (icon != null) ...[Icon(icon, size: 20, color: AppColors.primary), const SizedBox(width: Gap.sm)],
-            Expanded(child: Semantics(header: true, child: Text(title, style: t.titleMedium))),
-          ]),
+          Row(
+            children: [
+              if (icon != null) ...[Icon(icon, size: 20, color: AppColors.primary), const SizedBox(width: Gap.sm)],
+              Expanded(
+                child: Semantics(header: true, child: Text(title, style: t.titleMedium)),
+              ),
+            ],
+          ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
             Text(subtitle!, style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
@@ -81,7 +85,9 @@ class MoneyField extends StatelessWidget {
         if (!required && (v == null || v.trim().isEmpty)) return null;
         final e = Validators.amount(v, allowZero: allowZero, field: label);
         if (e != null) return e;
-        if (maxPaise != null && Money.parseRupees(v!)! > maxPaise!) return 'Cannot be more than ${Money.format(maxPaise!)}';
+        if (maxPaise != null && Money.parseRupees(v!)! > maxPaise!) {
+          return 'Cannot be more than ${Money.format(maxPaise!)}';
+        }
         return null;
       },
     );
@@ -137,7 +143,14 @@ class DateField extends StatelessWidget {
 
 /// Primary action with built-in busy state and rule-error handling.
 class AsyncButton extends StatefulWidget {
-  const AsyncButton({super.key, required this.label, required this.onPressed, this.icon, this.danger = false, this.outlined = false});
+  const AsyncButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.danger = false,
+    this.outlined = false,
+  });
 
   final String label;
   final Future<void> Function()? onPressed;
@@ -170,10 +183,13 @@ class _AsyncButtonState extends State<AsyncButton> {
   Widget build(BuildContext context) {
     final child = _busy
         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-        : Row(mainAxisSize: MainAxisSize.min, children: [
-            if (widget.icon != null) ...[Icon(widget.icon, size: 20), const SizedBox(width: Gap.sm)],
-            Flexible(child: Text(widget.label, overflow: TextOverflow.ellipsis)),
-          ]);
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.icon != null) ...[Icon(widget.icon, size: 20), const SizedBox(width: Gap.sm)],
+              Flexible(child: Text(widget.label, overflow: TextOverflow.ellipsis)),
+            ],
+          );
     final onPressed = widget.onPressed == null || _busy ? null : _run;
     if (widget.outlined) {
       return OutlinedButton(
@@ -233,7 +249,12 @@ Future<bool> confirmAction(
 }
 
 /// Asks for a short reason (for reversals, cancellations, voids).
-Future<String?> askReason(BuildContext context, {required String title, String hint = 'Reason', String confirmLabel = 'Confirm'}) {
+Future<String?> askReason(
+  BuildContext context, {
+  required String title,
+  String hint = 'Reason',
+  String confirmLabel = 'Confirm',
+}) {
   final c = TextEditingController();
   final key = GlobalKey<FormState>();
   return showDialog<String>(
@@ -270,23 +291,29 @@ Future<(Uint8List, String)?> pickImage(BuildContext context, {String title = 'Ad
   final source = await showModalBottomSheet<ImageSource>(
     context: context,
     builder: (ctx) => SafeArea(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.sm),
-          child: Align(alignment: Alignment.centerLeft, child: Text(title, style: Theme.of(ctx).textTheme.titleLarge)),
-        ),
-        ListTile(
-          leading: const Icon(Icons.photo_camera_outlined),
-          title: const Text('Take a photo'),
-          onTap: () => Navigator.pop(ctx, ImageSource.camera),
-        ),
-        ListTile(
-          leading: const Icon(Icons.photo_library_outlined),
-          title: const Text('Choose from gallery'),
-          onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-        ),
-        const SizedBox(height: Gap.sm),
-      ]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.sm),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(title, style: Theme.of(ctx).textTheme.titleLarge),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: const Text('Take a photo'),
+            onTap: () => Navigator.pop(ctx, ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('Choose from gallery'),
+            onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+          ),
+          const SizedBox(height: Gap.sm),
+        ],
+      ),
     ),
   );
   if (source == null) return null;
@@ -301,16 +328,34 @@ Future<(Uint8List, String)?> pickDocument(BuildContext context, {String title = 
   final choice = await showModalBottomSheet<String>(
     context: context,
     builder: (ctx) => SafeArea(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.sm),
-          child: Align(alignment: Alignment.centerLeft, child: Text(title, style: Theme.of(ctx).textTheme.titleLarge)),
-        ),
-        ListTile(leading: const Icon(Icons.photo_camera_outlined), title: const Text('Take a photo'), onTap: () => Navigator.pop(ctx, 'camera')),
-        ListTile(leading: const Icon(Icons.photo_library_outlined), title: const Text('Choose image'), onTap: () => Navigator.pop(ctx, 'gallery')),
-        ListTile(leading: const Icon(Icons.picture_as_pdf_outlined), title: const Text('Choose PDF'), onTap: () => Navigator.pop(ctx, 'pdf')),
-        const SizedBox(height: Gap.sm),
-      ]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.sm),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(title, style: Theme.of(ctx).textTheme.titleLarge),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: const Text('Take a photo'),
+            onTap: () => Navigator.pop(ctx, 'camera'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('Choose image'),
+            onTap: () => Navigator.pop(ctx, 'gallery'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.picture_as_pdf_outlined),
+            title: const Text('Choose PDF'),
+            onTap: () => Navigator.pop(ctx, 'pdf'),
+          ),
+          const SizedBox(height: Gap.sm),
+        ],
+      ),
     ),
   );
   if (choice == null) return null;
@@ -379,8 +424,13 @@ class PersonAvatar extends StatelessWidget {
       radius: radius,
       backgroundColor: color.withValues(alpha: 0.10),
       child: photoPath == null
-          ? Text(initials, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: radius * 0.66))
-          : ClipOval(child: StoredImage(path: photoPath!, width: radius * 2, height: radius * 2)),
+          ? Text(
+              initials,
+              style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: radius * 0.66),
+            )
+          : ClipOval(
+              child: StoredImage(path: photoPath!, width: radius * 2, height: radius * 2),
+            ),
     );
   }
 }

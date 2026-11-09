@@ -62,44 +62,86 @@ final routerProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppShell(shell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: '/home', builder: (_, _) => const DashboardScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/tenants', builder: (_, _) => const TenantsScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/rooms', builder: (_, _) => const RoomsScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/payments', builder: (_, _) => const PaymentsScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/more', builder: (_, _) => const MoreScreen())]),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/home', builder: (_, _) => const DashboardScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/tenants', builder: (_, _) => const TenantsScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/rooms', builder: (_, _) => const RoomsScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/payments', builder: (_, _) => const PaymentsScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/more', builder: (_, _) => const MoreScreen())],
+          ),
         ],
       ),
       // Full-screen flows push above the bottom navigation.
       GoRoute(path: '/rooms/new', builder: (_, _) => const RoomFormScreen()),
-      GoRoute(path: '/rooms/:id/edit', builder: (_, s) => RoomFormScreen(roomId: _id(s))),
+      GoRoute(
+        path: '/rooms/:id/edit',
+        builder: (_, s) => RoomFormScreen(roomId: _id(s)),
+      ),
 
       GoRoute(path: '/tenants/new', builder: (_, _) => const TenantFormScreen()),
-      GoRoute(path: '/tenants/:id', builder: (_, s) => TenantDetailScreen(tenantId: _id(s)!)),
-      GoRoute(path: '/tenants/:id/edit', builder: (_, s) => TenantFormScreen(tenantId: _id(s))),
-      GoRoute(path: '/tenants/:id/checkout', builder: (_, s) => CheckoutScreen(tenantId: _id(s)!)),
+      GoRoute(
+        path: '/tenants/:id',
+        builder: (_, s) => TenantDetailScreen(tenantId: _id(s)!),
+      ),
+      GoRoute(
+        path: '/tenants/:id/edit',
+        builder: (_, s) => TenantFormScreen(tenantId: _id(s)),
+      ),
+      GoRoute(
+        path: '/tenants/:id/checkout',
+        builder: (_, s) => CheckoutScreen(tenantId: _id(s)!),
+      ),
 
       GoRoute(
         path: '/payments/collect',
         builder: (_, s) => CollectPaymentScreen(tenantId: _q(s, 'tenant'), invoiceId: _q(s, 'invoice')),
       ),
-      GoRoute(path: '/payments/:id', builder: (_, s) => PaymentDetailScreen(paymentId: _id(s)!)),
-      GoRoute(path: '/payments/:id/receipt', builder: (_, s) => ReceiptScreen(paymentId: _id(s)!)),
-      GoRoute(path: '/invoices/:id', builder: (_, s) => InvoiceDetailScreen(invoiceId: _id(s)!)),
+      GoRoute(
+        path: '/payments/:id',
+        builder: (_, s) => PaymentDetailScreen(paymentId: _id(s)!),
+      ),
+      GoRoute(
+        path: '/payments/:id/receipt',
+        builder: (_, s) => ReceiptScreen(paymentId: _id(s)!),
+      ),
+      GoRoute(
+        path: '/invoices/:id',
+        builder: (_, s) => InvoiceDetailScreen(invoiceId: _id(s)!),
+      ),
 
       GoRoute(path: '/more/expenses', builder: (_, _) => const ExpensesScreen()),
       GoRoute(path: '/more/expenses/new', builder: (_, _) => const ExpenseFormScreen()),
       GoRoute(path: '/more/complaints', builder: (_, _) => const ComplaintsScreen()),
-      GoRoute(path: '/more/complaints/new', builder: (_, s) => ComplaintFormScreen(tenantId: _q(s, 'tenant'))),
-      GoRoute(path: '/more/complaints/:id', builder: (_, s) => ComplaintDetailScreen(complaintId: _id(s)!)),
+      GoRoute(
+        path: '/more/complaints/new',
+        builder: (_, s) => ComplaintFormScreen(tenantId: _q(s, 'tenant')),
+      ),
+      GoRoute(
+        path: '/more/complaints/:id',
+        builder: (_, s) => ComplaintDetailScreen(complaintId: _id(s)!),
+      ),
       GoRoute(path: '/more/menu', builder: (_, _) => const FoodMenuScreen()),
       GoRoute(path: '/more/notices', builder: (_, _) => const NoticesScreen()),
       GoRoute(path: '/more/notices/new', builder: (_, _) => const NoticeFormScreen()),
-      GoRoute(path: '/more/notices/:id', builder: (_, s) => NoticeFormScreen(noticeId: _id(s))),
+      GoRoute(
+        path: '/more/notices/:id',
+        builder: (_, s) => NoticeFormScreen(noticeId: _id(s)),
+      ),
       GoRoute(path: '/more/reports', builder: (_, _) => const ReportsScreen()),
       GoRoute(
         path: '/more/reports/:type',
         builder: (_, s) {
-          final type = ReportType.values.where((t) => t.name == s.pathParameters['type']).firstOrNull ?? ReportType.financialSummary;
+          final type =
+              ReportType.values.where((t) => t.name == s.pathParameters['type']).firstOrNull ??
+              ReportType.financialSummary;
           return ReportViewScreen(type: type, tenantId: _q(s, 'tenant'));
         },
       ),

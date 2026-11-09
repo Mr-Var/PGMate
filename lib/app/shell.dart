@@ -9,14 +9,27 @@ class AppShell extends StatelessWidget {
   final StatefulNavigationShell shell;
 
   static const _destinations = [
-    NavigationDestination(icon: Icon(Icons.space_dashboard_outlined), selectedIcon: Icon(Icons.space_dashboard_rounded), label: 'Home'),
-    NavigationDestination(icon: Icon(Icons.people_outline_rounded), selectedIcon: Icon(Icons.people_rounded), label: 'Tenants'),
+    NavigationDestination(
+      icon: Icon(Icons.space_dashboard_outlined),
+      selectedIcon: Icon(Icons.space_dashboard_rounded),
+      label: 'Home',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.people_outline_rounded),
+      selectedIcon: Icon(Icons.people_rounded),
+      label: 'Tenants',
+    ),
     NavigationDestination(icon: Icon(Icons.bed_outlined), selectedIcon: Icon(Icons.bed_rounded), label: 'Rooms'),
     NavigationDestination(
-        icon: Icon(Icons.account_balance_wallet_outlined),
-        selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-        label: 'Payments'),
-    NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded), label: 'More'),
+      icon: Icon(Icons.account_balance_wallet_outlined),
+      selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+      label: 'Payments',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.grid_view_outlined),
+      selectedIcon: Icon(Icons.grid_view_rounded),
+      label: 'More',
+    ),
   ];
 
   @override
@@ -24,7 +37,9 @@ class AppShell extends StatelessWidget {
     return Scaffold(
       body: shell,
       bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
         child: NavigationBar(
           selectedIndex: shell.currentIndex,
           destinations: _destinations,

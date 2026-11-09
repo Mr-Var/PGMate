@@ -17,8 +17,7 @@ class RentInvoices extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get invoiceNumber => text().unique()();
   IntColumn get tenantId => integer().references(Tenants, #id, onDelete: KeyAction.restrict)();
-  IntColumn get allocationId =>
-      integer().nullable().references(Allocations, #id, onDelete: KeyAction.restrict)();
+  IntColumn get allocationId => integer().nullable().references(Allocations, #id, onDelete: KeyAction.restrict)();
   IntColumn get periodYear => integer()();
   IntColumn get periodMonth => integer().check(periodMonth.isBetweenValues(1, 12))();
   DateTimeColumn get periodStart => dateTime()();
@@ -52,13 +51,13 @@ class Payments extends Table {
   IntColumn get tenantId => integer().references(Tenants, #id, onDelete: KeyAction.restrict)();
   IntColumn get amountPaise => integer().check(amountPaise.equals(0).not())();
   TextColumn get method => textEnum<PaymentMethod>()();
+
   /// UPI UTR / reference number. Unique when present (partial index).
   TextColumn get upiReference => text().nullable()();
   DateTimeColumn get paymentDate => dateTime()();
   TextColumn get status => textEnum<PaymentStatus>()();
   TextColumn get kind => textEnum<PaymentKind>().withDefault(Constant(PaymentKind.payment.name))();
-  IntColumn get reversesPaymentId =>
-      integer().nullable().references(Payments, #id, onDelete: KeyAction.restrict)();
+  IntColumn get reversesPaymentId => integer().nullable().references(Payments, #id, onDelete: KeyAction.restrict)();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get verifiedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -71,6 +70,7 @@ class PaymentAllocations extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get paymentId => integer().references(Payments, #id, onDelete: KeyAction.restrict)();
   IntColumn get invoiceId => integer().references(RentInvoices, #id, onDelete: KeyAction.restrict)();
+
   /// Positive for payments, negative for reversals.
   IntColumn get amountPaise => integer()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

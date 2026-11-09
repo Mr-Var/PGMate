@@ -32,7 +32,11 @@ class PaymentDetailScreen extends ConsumerWidget {
         loading: () => const LoadingList(),
         error: (e, _) => ErrorState(error: e),
         data: (v) => v == null
-            ? const EmptyState(icon: Icons.search_off_rounded, title: 'Payment not found', message: 'This record does not exist.')
+            ? const EmptyState(
+                icon: Icons.search_off_rounded,
+                title: 'Payment not found',
+                message: 'This record does not exist.',
+              )
             : _Body(view: v),
       ),
     );
@@ -49,11 +53,15 @@ class _Body extends ConsumerWidget {
     final t = Theme.of(context).textTheme;
     final pending = p.status == PaymentStatus.pendingVerification;
     final reversal = p.kind == PaymentKind.reversal;
-    final canReverse = !reversal && p.status == PaymentStatus.confirmed && !view.isReversed && p.method != PaymentMethod.deposit;
+    final canReverse =
+        !reversal && p.status == PaymentStatus.confirmed && !view.isReversed && p.method != PaymentMethod.deposit;
     final (statusLabel, statusColor, statusBg) = switch (p.status) {
       _ when view.isReversed => ('Reversed', AppColors.danger, AppColors.dangerSoft),
-      PaymentStatus.confirmed => (reversal ? 'Reversal' : 'Confirmed', reversal ? AppColors.danger : AppColors.success,
-          reversal ? AppColors.dangerSoft : AppColors.successSoft),
+      PaymentStatus.confirmed => (
+        reversal ? 'Reversal' : 'Confirmed',
+        reversal ? AppColors.danger : AppColors.success,
+        reversal ? AppColors.dangerSoft : AppColors.successSoft,
+      ),
       PaymentStatus.pendingVerification => ('Awaiting verification', AppColors.warning, AppColors.warningSoft),
       PaymentStatus.rejected => ('Rejected', AppColors.textSecondary, AppColors.neutralSoft),
     };
@@ -77,30 +85,48 @@ class _Body extends ConsumerWidget {
             color: reversal ? AppColors.danger : AppColors.primary,
             borderRadius: BorderRadius.circular(Radii.xl),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Icon(reversal ? Icons.undo_rounded : methodIcon(p.method), color: Colors.white70),
-              const SizedBox(width: Gap.sm),
-              Text(reversal ? 'Amount reversed' : 'Amount received', style: t.labelLarge?.copyWith(color: Colors.white70)),
-            ]),
-            const SizedBox(height: Gap.sm),
-            Text(Money.format(p.amountPaise.abs()),
-                style: t.displaySmall?.copyWith(color: Colors.white, fontFeatures: AppTheme.tabular)),
-            const SizedBox(height: Gap.md),
-            StatusPill(label: statusLabel, color: statusColor, background: statusBg),
-          ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(reversal ? Icons.undo_rounded : methodIcon(p.method), color: Colors.white70),
+                  const SizedBox(width: Gap.sm),
+                  Text(
+                    reversal ? 'Amount reversed' : 'Amount received',
+                    style: t.labelLarge?.copyWith(color: Colors.white70),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Gap.sm),
+              Text(
+                Money.format(p.amountPaise.abs()),
+                style: t.displaySmall?.copyWith(color: Colors.white, fontFeatures: AppTheme.tabular),
+              ),
+              const SizedBox(height: Gap.md),
+              StatusPill(label: statusLabel, color: statusColor, background: statusBg),
+            ],
+          ),
         ),
         const SizedBox(height: Gap.lg),
         AppCard(
-          child: Column(children: [
-            for (final (i, r) in rows.indexed) ...[
-              if (i > 0) const Divider(height: Gap.xl),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                SizedBox(width: 116, child: Text(r.$1, style: t.bodyMedium?.copyWith(color: AppColors.textMuted))),
-                Expanded(child: SelectableText(r.$2, style: t.bodyMedium)),
-              ]),
+          child: Column(
+            children: [
+              for (final (i, r) in rows.indexed) ...[
+                if (i > 0) const Divider(height: Gap.xl),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 116,
+                      child: Text(r.$1, style: t.bodyMedium?.copyWith(color: AppColors.textMuted)),
+                    ),
+                    Expanded(child: SelectableText(r.$2, style: t.bodyMedium)),
+                  ],
+                ),
+              ],
             ],
-          ]),
+          ),
         ),
         const SizedBox(height: Gap.xl),
         if (pending) ...[
@@ -118,9 +144,18 @@ class _Body extends ConsumerWidget {
             outlined: true,
             danger: true,
             onPressed: () async {
-              final reason = await askReason(context, title: 'Reject this UPI payment?', hint: 'What happened?', confirmLabel: 'Reject');
+              final reason = await askReason(
+                context,
+                title: 'Reject this UPI payment?',
+                hint: 'What happened?',
+                confirmLabel: 'Reject',
+              );
               if (reason == null || !context.mounted) return;
-              await runGuarded(context, () => ref.read(databaseProvider).billingDao.rejectUpiPayment(p.id, reason), success: 'Rejected');
+              await runGuarded(
+                context,
+                () => ref.read(databaseProvider).billingDao.rejectUpiPayment(p.id, reason),
+                success: 'Rejected',
+              );
             },
           ),
           const SizedBox(height: Gap.md),
@@ -141,10 +176,13 @@ class _Body extends ConsumerWidget {
               final r = await ref.read(databaseProvider).billingDao.receiptData(p.id);
               final pdf = await ref.read(exportServiceProvider).receiptPdf(r);
               final f = await ref.read(exportServiceProvider).writeTemp('${p.receiptNumber}.pdf', pdf);
-              await ref.read(exportServiceProvider).shareFile(
+              await ref
+                  .read(exportServiceProvider)
+                  .shareFile(
                     f,
                     mime: 'application/pdf',
-                    text: '${r.profile.name}: received ${Money.format(p.amountPaise.abs())} from ${r.tenant.fullName} '
+                    text:
+                        '${r.profile.name}: received ${Money.format(p.amountPaise.abs())} from ${r.tenant.fullName} '
                         'on ${Dates.short(p.paymentDate)}. Receipt ${p.receiptNumber}. Balance due ${Money.format(r.outstandingPaise)}.',
                   );
             },
@@ -154,8 +192,10 @@ class _Body extends ConsumerWidget {
           const SizedBox(height: Gap.xl),
           const Divider(),
           const SizedBox(height: Gap.md),
-          Text('Entered something wrong? Payments are never edited. Reverse this one and record it again.',
-              style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
+          Text(
+            'Entered something wrong? Payments are never edited. Reverse this one and record it again.',
+            style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+          ),
           const SizedBox(height: Gap.md),
           AsyncButton(
             label: 'Reverse payment',
@@ -170,14 +210,23 @@ class _Body extends ConsumerWidget {
   }
 
   Future<void> _reverse(BuildContext context, WidgetRef ref, int id) async {
-    final reason = await askReason(context, title: 'Reverse this payment?', hint: 'Reason for reversal', confirmLabel: 'Continue');
+    final reason = await askReason(
+      context,
+      title: 'Reverse this payment?',
+      hint: 'Reason for reversal',
+      confirmLabel: 'Continue',
+    );
     if (reason == null || !context.mounted) return;
     final auth = ref.read(authServiceProvider);
     final ok = await confirmOwnerPin(
       context,
       message: 'Reversing a payment changes the tenant\'s balance.',
       length: AuthService.pinLength,
-      verify: (pin) async => switch (await auth.verifyPin(pin)) { PinOk() => true, PinWrong() => false, PinLockedOut() => null },
+      verify: (pin) async => switch (await auth.verifyPin(pin)) {
+        PinOk() => true,
+        PinWrong() => false,
+        PinLockedOut() => null,
+      },
     );
     if (!ok || !context.mounted) return;
     await runGuarded(context, () async {

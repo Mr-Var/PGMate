@@ -11,56 +11,81 @@ class Seed {
   Seed(this.db);
   final AppDatabase db;
 
-  Future<int> tenant(String name, {String phone = '9876543210', TenantStatus status = TenantStatus.active}) =>
-      db.into(db.tenants).insert(TenantsCompanion.insert(
-            fullName: name,
-            phone: phone,
-            gender: Gender.male,
-            joiningDate: DateTime(2026, 1, 1),
-            monthlyRentPaise: 800000,
-            rentDueDay: 5,
-            status: Value(status),
-          ));
+  Future<int> tenant(String name, {String phone = '9876543210', TenantStatus status = TenantStatus.active}) => db
+      .into(db.tenants)
+      .insert(
+        TenantsCompanion.insert(
+          fullName: name,
+          phone: phone,
+          gender: Gender.male,
+          joiningDate: DateTime(2026, 1, 1),
+          monthlyRentPaise: 800000,
+          rentDueDay: 5,
+          status: Value(status),
+        ),
+      );
 
-  Future<int> allocate(int tenantId, int bedId) => db.into(db.allocations).insert(AllocationsCompanion.insert(
-        tenantId: tenantId,
-        bedId: bedId,
-        startDate: DateTime(2026, 1, 1),
-        rentPaise: 800000,
-      ));
+  Future<int> allocate(int tenantId, int bedId) => db
+      .into(db.allocations)
+      .insert(
+        AllocationsCompanion.insert(
+          tenantId: tenantId,
+          bedId: bedId,
+          startDate: DateTime(2026, 1, 1),
+          rentPaise: 800000,
+        ),
+      );
 
-  Future<int> invoice(int tenantId, int year, int month,
-          {int total = 800000, int paid = 0, InvoiceStatus status = InvoiceStatus.unpaid, DateTime? due}) =>
-      db.into(db.rentInvoices).insert(RentInvoicesCompanion.insert(
-            invoiceNumber: 'INV-$tenantId-$year$month-${DateTime.now().microsecondsSinceEpoch}',
-            tenantId: tenantId,
-            periodYear: year,
-            periodMonth: month,
-            periodStart: DateTime(year, month),
-            periodEnd: DateTime(year, month + 1),
-            rentPaise: total,
-            totalPaise: total,
-            paidPaise: Value(paid),
-            status: Value(status),
-            dueDate: due ?? DateTime(year, month, 5),
-          ));
+  Future<int> invoice(
+    int tenantId,
+    int year,
+    int month, {
+    int total = 800000,
+    int paid = 0,
+    InvoiceStatus status = InvoiceStatus.unpaid,
+    DateTime? due,
+  }) => db
+      .into(db.rentInvoices)
+      .insert(
+        RentInvoicesCompanion.insert(
+          invoiceNumber: 'INV-$tenantId-$year$month-${DateTime.now().microsecondsSinceEpoch}',
+          tenantId: tenantId,
+          periodYear: year,
+          periodMonth: month,
+          periodStart: DateTime(year, month),
+          periodEnd: DateTime(year, month + 1),
+          rentPaise: total,
+          totalPaise: total,
+          paidPaise: Value(paid),
+          status: Value(status),
+          dueDate: due ?? DateTime(year, month, 5),
+        ),
+      );
 
   var _n = 0;
-  Future<int> payment(int tenantId, int amount, DateTime date,
-      {PaymentMethod method = PaymentMethod.cash,
-      PaymentStatus status = PaymentStatus.confirmed,
-      String? utr}) {
+  Future<int> payment(
+    int tenantId,
+    int amount,
+    DateTime date, {
+    PaymentMethod method = PaymentMethod.cash,
+    PaymentStatus status = PaymentStatus.confirmed,
+    String? utr,
+  }) {
     _n++;
-    return db.into(db.payments).insert(PaymentsCompanion.insert(
-          transactionId: 'TXN-$_n',
-          receiptNumber: 'RCPT-$_n',
-          tenantId: tenantId,
-          amountPaise: amount,
-          method: method,
-          upiReference: Value(utr),
-          paymentDate: date,
-          status: status,
-        ));
+    return db
+        .into(db.payments)
+        .insert(
+          PaymentsCompanion.insert(
+            transactionId: 'TXN-$_n',
+            receiptNumber: 'RCPT-$_n',
+            tenantId: tenantId,
+            amountPaise: amount,
+            method: method,
+            upiReference: Value(utr),
+            paymentDate: date,
+            status: status,
+          ),
+        );
   }
 }
 
@@ -119,8 +144,9 @@ void main() {
       final roomId = await db.roomsDao.addRoom(roomNumber: '9', floor: 0, rentPaise: 1, bedCount: 1);
       final bed = (await bedIds()).single;
       final allocation = await seed.allocate(await seed.tenant('Asha'), bed);
-      await (db.update(db.allocations)..where((a) => a.id.equals(allocation)))
-          .write(AllocationsCompanion(isActive: const Value(false), endDate: Value(DateTime(2026, 3, 1))));
+      await (db.update(db.allocations)..where((a) => a.id.equals(allocation))).write(
+        AllocationsCompanion(isActive: const Value(false), endDate: Value(DateTime(2026, 3, 1))),
+      );
 
       await db.roomsDao.deleteRoom(roomId);
       expect(await db.roomsDao.watchRooms().first, isEmpty);
@@ -152,8 +178,9 @@ void main() {
       final first = await seed.invoice(a, 2026, 11);
       expect(() => seed.invoice(a, 2026, 11), throwsA(isA<SqliteException>()));
 
-      await (db.update(db.rentInvoices)..where((i) => i.id.equals(first)))
-          .write(const RentInvoicesCompanion(status: Value(InvoiceStatus.cancelled)));
+      await (db.update(
+        db.rentInvoices,
+      )..where((i) => i.id.equals(first))).write(const RentInvoicesCompanion(status: Value(InvoiceStatus.cancelled)));
       await seed.invoice(a, 2026, 11); // re-issue allowed after cancellation
     });
 
@@ -162,8 +189,9 @@ void main() {
       final p = await seed.payment(a, 500000, DateTime(2026, 11, 2));
       expect(() => (db.delete(db.payments)..where((x) => x.id.equals(p))).go(), throwsA(isA<SqliteException>()));
       expect(
-        () => (db.update(db.payments)..where((x) => x.id.equals(p)))
-            .write(const PaymentsCompanion(amountPaise: Value(1))),
+        () => (db.update(
+          db.payments,
+        )..where((x) => x.id.equals(p))).write(const PaymentsCompanion(amountPaise: Value(1))),
         throwsA(isA<SqliteException>()),
       );
     });
@@ -172,8 +200,9 @@ void main() {
       final a = await seed.tenant('Asha');
       final p = await seed.payment(a, 500000, DateTime(2026, 11, 2));
       expect(
-        () => (db.update(db.payments)..where((x) => x.id.equals(p)))
-            .write(const PaymentsCompanion(status: Value(PaymentStatus.rejected))),
+        () => (db.update(
+          db.payments,
+        )..where((x) => x.id.equals(p))).write(const PaymentsCompanion(status: Value(PaymentStatus.rejected))),
         throwsA(isA<SqliteException>()),
       );
     });
@@ -190,13 +219,17 @@ void main() {
     test('invoices and expenses cannot be hard-deleted', () async {
       final a = await seed.tenant('Asha');
       await seed.invoice(a, 2026, 11);
-      await db.into(db.expenses).insert(ExpensesCompanion.insert(
-            title: 'Power',
-            category: ExpenseCategory.electricity,
-            amountPaise: 100,
-            expenseDate: DateTime(2026, 11, 1),
-            paymentMethod: PaymentMethod.cash,
-          ));
+      await db
+          .into(db.expenses)
+          .insert(
+            ExpensesCompanion.insert(
+              title: 'Power',
+              category: ExpenseCategory.electricity,
+              amountPaise: 100,
+              expenseDate: DateTime(2026, 11, 1),
+              paymentMethod: PaymentMethod.cash,
+            ),
+          );
       expect(() => db.delete(db.rentInvoices).go(), throwsA(isA<SqliteException>()));
       expect(() => db.delete(db.expenses).go(), throwsA(isA<SqliteException>()));
     });
@@ -230,26 +263,40 @@ void main() {
       await seed.payment(a, 800000, DateTime(2026, 11, 3));
       await seed.payment(b, 300000, DateTime(2026, 11, 4), method: PaymentMethod.upi, utr: 'U1');
       // Unverified UPI must not count as collected.
-      await seed.payment(b, 500000, DateTime(2026, 11, 6),
-          method: PaymentMethod.upi, status: PaymentStatus.pendingVerification, utr: 'U2');
+      await seed.payment(
+        b,
+        500000,
+        DateTime(2026, 11, 6),
+        method: PaymentMethod.upi,
+        status: PaymentStatus.pendingVerification,
+        utr: 'U2',
+      );
       // A payment from last month is outside the range.
       await seed.payment(a, 100000, DateTime(2026, 10, 30));
 
-      await db.into(db.expenses).insert(ExpensesCompanion.insert(
-            title: 'Electricity bill',
-            category: ExpenseCategory.electricity,
-            amountPaise: 250000,
-            expenseDate: DateTime(2026, 11, 2),
-            paymentMethod: PaymentMethod.upi,
-          ));
-      await db.into(db.expenses).insert(ExpensesCompanion.insert(
-            title: 'Voided',
-            category: ExpenseCategory.repairs,
-            amountPaise: 999900,
-            expenseDate: DateTime(2026, 11, 2),
-            paymentMethod: PaymentMethod.cash,
-            isVoided: const Value(true),
-          ));
+      await db
+          .into(db.expenses)
+          .insert(
+            ExpensesCompanion.insert(
+              title: 'Electricity bill',
+              category: ExpenseCategory.electricity,
+              amountPaise: 250000,
+              expenseDate: DateTime(2026, 11, 2),
+              paymentMethod: PaymentMethod.upi,
+            ),
+          );
+      await db
+          .into(db.expenses)
+          .insert(
+            ExpensesCompanion.insert(
+              title: 'Voided',
+              category: ExpenseCategory.repairs,
+              amountPaise: 999900,
+              expenseDate: DateTime(2026, 11, 2),
+              paymentMethod: PaymentMethod.cash,
+              isVoided: const Value(true),
+            ),
+          );
 
       final s = await db.dashboardDao.summary(DateRange.month(2026, 11), now: now);
       expect(s.totalTenants, 2);

@@ -40,86 +40,86 @@ enum ComplaintPriority { low, medium, high, urgent }
 
 extension BedStatusX on BedStatus {
   String get label => switch (this) {
-        BedStatus.available => 'Available',
-        BedStatus.occupied => 'Occupied',
-        BedStatus.reserved => 'Reserved',
-        BedStatus.maintenance => 'Maintenance',
-      };
+    BedStatus.available => 'Available',
+    BedStatus.occupied => 'Occupied',
+    BedStatus.reserved => 'Reserved',
+    BedStatus.maintenance => 'Maintenance',
+  };
 }
 
 extension TenantStatusX on TenantStatus {
   String get label => switch (this) {
-        TenantStatus.newTenant => 'New',
-        TenantStatus.active => 'Active',
-        TenantStatus.noticeGiven => 'Notice given',
-        TenantStatus.checkedOut => 'Checked out',
-        TenantStatus.archived => 'Archived',
-      };
+    TenantStatus.newTenant => 'New',
+    TenantStatus.active => 'Active',
+    TenantStatus.noticeGiven => 'Notice given',
+    TenantStatus.checkedOut => 'Checked out',
+    TenantStatus.archived => 'Archived',
+  };
 }
 
 extension PaymentMethodX on PaymentMethod {
   String get label => switch (this) {
-        PaymentMethod.cash => 'Cash',
-        PaymentMethod.upi => 'UPI',
-        PaymentMethod.bank => 'Bank transfer',
-        PaymentMethod.deposit => 'Deposit adjustment',
-      };
+    PaymentMethod.cash => 'Cash',
+    PaymentMethod.upi => 'UPI',
+    PaymentMethod.bank => 'Bank transfer',
+    PaymentMethod.deposit => 'Deposit adjustment',
+  };
 }
 
 extension ExpenseCategoryX on ExpenseCategory {
   String get label => switch (this) {
-        ExpenseCategory.electricity => 'Electricity',
-        ExpenseCategory.water => 'Water',
-        ExpenseCategory.food => 'Food',
-        ExpenseCategory.staffSalaries => 'Staff salaries',
-        ExpenseCategory.internet => 'Internet',
-        ExpenseCategory.maintenance => 'Maintenance',
-        ExpenseCategory.cleaning => 'Cleaning',
-        ExpenseCategory.repairs => 'Repairs',
-        ExpenseCategory.miscellaneous => 'Miscellaneous',
-      };
+    ExpenseCategory.electricity => 'Electricity',
+    ExpenseCategory.water => 'Water',
+    ExpenseCategory.food => 'Food',
+    ExpenseCategory.staffSalaries => 'Staff salaries',
+    ExpenseCategory.internet => 'Internet',
+    ExpenseCategory.maintenance => 'Maintenance',
+    ExpenseCategory.cleaning => 'Cleaning',
+    ExpenseCategory.repairs => 'Repairs',
+    ExpenseCategory.miscellaneous => 'Miscellaneous',
+  };
 }
 
 extension InvoiceStatusX on InvoiceStatus {
   String get label => switch (this) {
-        InvoiceStatus.unpaid => 'Unpaid',
-        InvoiceStatus.partiallyPaid => 'Partially paid',
-        InvoiceStatus.paid => 'Paid',
-        InvoiceStatus.overdue => 'Overdue',
-        InvoiceStatus.cancelled => 'Cancelled',
-      };
+    InvoiceStatus.unpaid => 'Unpaid',
+    InvoiceStatus.partiallyPaid => 'Partially paid',
+    InvoiceStatus.paid => 'Paid',
+    InvoiceStatus.overdue => 'Overdue',
+    InvoiceStatus.cancelled => 'Cancelled',
+  };
 }
 
 extension PaymentStatusX on PaymentStatus {
   String get label => switch (this) {
-        PaymentStatus.pendingVerification => 'Awaiting verification',
-        PaymentStatus.confirmed => 'Confirmed',
-        PaymentStatus.rejected => 'Rejected',
-      };
+    PaymentStatus.pendingVerification => 'Awaiting verification',
+    PaymentStatus.confirmed => 'Confirmed',
+    PaymentStatus.rejected => 'Rejected',
+  };
 }
 
 extension ComplaintStatusX on ComplaintStatus {
   String get label => switch (this) {
-        ComplaintStatus.open => 'Open',
-        ComplaintStatus.inProgress => 'In progress',
-        ComplaintStatus.resolved => 'Resolved',
-        ComplaintStatus.closed => 'Closed',
-      };
+    ComplaintStatus.open => 'Open',
+    ComplaintStatus.inProgress => 'In progress',
+    ComplaintStatus.resolved => 'Resolved',
+    ComplaintStatus.closed => 'Closed',
+  };
 }
 
 extension ComplaintPriorityX on ComplaintPriority {
   String get label => switch (this) {
-        ComplaintPriority.low => 'Low',
-        ComplaintPriority.medium => 'Medium',
-        ComplaintPriority.high => 'High',
-        ComplaintPriority.urgent => 'Urgent',
-      };
+    ComplaintPriority.low => 'Low',
+    ComplaintPriority.medium => 'Medium',
+    ComplaintPriority.high => 'High',
+    ComplaintPriority.urgent => 'Urgent',
+  };
 }
 
 extension GenderX on Gender {
   String get label => switch (this) {
-        Gender.male => 'Male',
-        Gender.female => 'Female',
-        Gender.other => 'Other',
-      };
+    Gender.male => 'Male',
+    Gender.female => 'Female',
+    Gender.other => 'Other',
+  };
 }

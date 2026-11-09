@@ -10,12 +10,12 @@ import '../../core/utils/money.dart';
 import '../../shared/widgets/state_views.dart';
 
 (Color, Color) invoiceColors(InvoiceStatus s) => switch (s) {
-      InvoiceStatus.paid => (AppColors.success, AppColors.successSoft),
-      InvoiceStatus.partiallyPaid => (AppColors.info, AppColors.infoSoft),
-      InvoiceStatus.overdue => (AppColors.danger, AppColors.dangerSoft),
-      InvoiceStatus.unpaid => (AppColors.warning, AppColors.warningSoft),
-      InvoiceStatus.cancelled => (AppColors.textSecondary, AppColors.neutralSoft),
-    };
+  InvoiceStatus.paid => (AppColors.success, AppColors.successSoft),
+  InvoiceStatus.partiallyPaid => (AppColors.info, AppColors.infoSoft),
+  InvoiceStatus.overdue => (AppColors.danger, AppColors.dangerSoft),
+  InvoiceStatus.unpaid => (AppColors.warning, AppColors.warningSoft),
+  InvoiceStatus.cancelled => (AppColors.textSecondary, AppColors.neutralSoft),
+};
 
 StatusPill invoicePill(InvoiceStatus s) {
   final (c, b) = invoiceColors(s);
@@ -23,11 +23,11 @@ StatusPill invoicePill(InvoiceStatus s) {
 }
 
 IconData methodIcon(PaymentMethod m) => switch (m) {
-      PaymentMethod.cash => Icons.payments_outlined,
-      PaymentMethod.upi => Icons.qr_code_2_rounded,
-      PaymentMethod.bank => Icons.account_balance_outlined,
-      PaymentMethod.deposit => Icons.savings_outlined,
-    };
+  PaymentMethod.cash => Icons.payments_outlined,
+  PaymentMethod.upi => Icons.qr_code_2_rounded,
+  PaymentMethod.bank => Icons.account_balance_outlined,
+  PaymentMethod.deposit => Icons.savings_outlined,
+};
 
 class InvoiceTile extends StatelessWidget {
   const InvoiceTile({super.key, required this.view, this.showTenant = true});
@@ -121,7 +121,12 @@ class PaymentTile extends StatelessWidget {
             style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular, color: rejected ? AppColors.textMuted : null),
           ),
           if (pending)
-            const StatusPill(label: 'Verify', color: AppColors.warning, background: AppColors.warningSoft, icon: Icons.hourglass_top_rounded)
+            const StatusPill(
+              label: 'Verify',
+              color: AppColors.warning,
+              background: AppColors.warningSoft,
+              icon: Icons.hourglass_top_rounded,
+            )
           else if (rejected)
             const StatusPill(label: 'Rejected', color: AppColors.textSecondary, background: AppColors.neutralSoft)
           else if (view.isReversed)
@@ -142,9 +147,11 @@ class TileGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: Column(children: [
-        for (final (i, c) in children.indexed) ...[if (i > 0) Divider(indent: indent), c],
-      ]),
+      child: Column(
+        children: [
+          for (final (i, c) in children.indexed) ...[if (i > 0) Divider(indent: indent), c],
+        ],
+      ),
     );
   }
 }

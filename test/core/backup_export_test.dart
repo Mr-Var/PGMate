@@ -26,10 +26,12 @@ class FakePaths extends Fake with MockPlatformInterfaceMixin implements PathProv
   Future<String?> getTemporaryPath() async => (await Directory(p.join(root.path, 'tmp')).create(recursive: true)).path;
 
   @override
-  Future<String?> getApplicationSupportPath() async => (await Directory(p.join(root.path, 'support')).create(recursive: true)).path;
+  Future<String?> getApplicationSupportPath() async =>
+      (await Directory(p.join(root.path, 'support')).create(recursive: true)).path;
 
   @override
-  Future<String?> getApplicationDocumentsPath() async => (await Directory(p.join(root.path, 'docs')).create(recursive: true)).path;
+  Future<String?> getApplicationDocumentsPath() async =>
+      (await Directory(p.join(root.path, 'docs')).create(recursive: true)).path;
 }
 
 void main() {
@@ -49,7 +51,12 @@ void main() {
   }
 
   Future<(int, int)> seed(AppDatabase db) async {
-    await db.settingsDao.saveProfile(name: 'Sunrise PG', address: '12 MG Road', ownerName: 'Ravi', ownerPhone: '9876543210');
+    await db.settingsDao.saveProfile(
+      name: 'Sunrise PG',
+      address: '12 MG Road',
+      ownerName: 'Ravi',
+      ownerPhone: '9876543210',
+    );
     await db.roomsDao.addRoom(roomNumber: '101', floor: 1, rentPaise: 900000, bedCount: 2);
     final bed = (await db.select(db.beds).get()).first.id;
     final t = await db.tenantsDao.createTenant(
@@ -65,7 +72,8 @@ void main() {
       bedId: bed,
     );
     final pay = await db.billingDao.recordPayment(
-        PaymentInput(tenantId: t, amountPaise: 400000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+      PaymentInput(tenantId: t, amountPaise: 400000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+    );
     return (t, pay);
   }
 
@@ -74,7 +82,11 @@ void main() {
     final backups = BackupService(files: files);
     var db = await openLive();
     final (_, _) = await seed(db);
-    final photo = await files.save(Uint8List.fromList(List.generate(2000, (i) => i % 256)), folder: 'tenants', extension: 'jpg');
+    final photo = await files.save(
+      Uint8List.fromList(List.generate(2000, (i) => i % 256)),
+      folder: 'tenants',
+      extension: 'jpg',
+    );
 
     final (bytes, manifest) = await backups.create(db, 'correct horse');
     expect(manifest.tenants, 1);
@@ -84,14 +96,28 @@ void main() {
     expect(String.fromCharCodes(bytes).contains('Arjun'), isFalse);
 
     // Wrong password and a flipped byte are both refused before anything changes.
-    await expectLater(backups.validate(bytes, 'wrong pass', currentSchemaVersion: db.schemaVersion), throwsA(isA<RuleException>()));
+    await expectLater(
+      backups.validate(bytes, 'wrong pass', currentSchemaVersion: db.schemaVersion),
+      throwsA(isA<RuleException>()),
+    );
     final tampered = Uint8List.fromList(bytes)..[bytes.length - 10] ^= 0xFF;
-    await expectLater(backups.validate(tampered, 'correct horse', currentSchemaVersion: db.schemaVersion), throwsA(isA<RuleException>()));
-    await expectLater(backups.validate(Uint8List.fromList([1, 2, 3]), 'x', currentSchemaVersion: 1), throwsA(isA<RuleException>()));
+    await expectLater(
+      backups.validate(tampered, 'correct horse', currentSchemaVersion: db.schemaVersion),
+      throwsA(isA<RuleException>()),
+    );
+    await expectLater(
+      backups.validate(Uint8List.fromList([1, 2, 3]), 'x', currentSchemaVersion: 1),
+      throwsA(isA<RuleException>()),
+    );
 
     // Change data after the backup, then restore.
     await db.opsDao.addExpense(
-        title: 'After backup', category: ExpenseCategory.food, amountPaise: 100, date: DateTime(2026, 11, 5), method: PaymentMethod.cash);
+      title: 'After backup',
+      category: ExpenseCategory.food,
+      amountPaise: 100,
+      date: DateTime(2026, 11, 5),
+      method: PaymentMethod.cash,
+    );
     final valid = await backups.validate(bytes, 'correct horse', currentSchemaVersion: db.schemaVersion);
     await db.close();
     await (await files.resolve(photo)).delete();

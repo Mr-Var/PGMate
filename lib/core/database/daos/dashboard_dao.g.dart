@@ -17,18 +17,13 @@ mixin _$DashboardDaoMixin on DatabaseAccessor<AppDatabase> {
 class DashboardDaoManager {
   final _$DashboardDaoMixin _db;
   DashboardDaoManager(this._db);
-  $$RoomsTableTableManager get rooms =>
-      $$RoomsTableTableManager(_db.attachedDatabase, _db.rooms);
-  $$BedsTableTableManager get beds =>
-      $$BedsTableTableManager(_db.attachedDatabase, _db.beds);
-  $$TenantsTableTableManager get tenants =>
-      $$TenantsTableTableManager(_db.attachedDatabase, _db.tenants);
+  $$RoomsTableTableManager get rooms => $$RoomsTableTableManager(_db.attachedDatabase, _db.rooms);
+  $$BedsTableTableManager get beds => $$BedsTableTableManager(_db.attachedDatabase, _db.beds);
+  $$TenantsTableTableManager get tenants => $$TenantsTableTableManager(_db.attachedDatabase, _db.tenants);
   $$AllocationsTableTableManager get allocations =>
       $$AllocationsTableTableManager(_db.attachedDatabase, _db.allocations);
   $$RentInvoicesTableTableManager get rentInvoices =>
       $$RentInvoicesTableTableManager(_db.attachedDatabase, _db.rentInvoices);
-  $$PaymentsTableTableManager get payments =>
-      $$PaymentsTableTableManager(_db.attachedDatabase, _db.payments);
-  $$ExpensesTableTableManager get expenses =>
-      $$ExpensesTableTableManager(_db.attachedDatabase, _db.expenses);
+  $$PaymentsTableTableManager get payments => $$PaymentsTableTableManager(_db.attachedDatabase, _db.payments);
+  $$ExpensesTableTableManager get expenses => $$ExpensesTableTableManager(_db.attachedDatabase, _db.expenses);
 }

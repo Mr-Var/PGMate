@@ -41,98 +41,153 @@ class ExportService {
     final months = r.lines.map((l) => Dates.monthYear(l.period)).toSet().join(', ');
 
     pw.Widget kv(String k, String v, {bool strong = false}) => pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 4),
-          child: pw.Row(children: [
-            pw.SizedBox(width: 140, child: pw.Text(k, style: const pw.TextStyle(color: _muted, fontSize: 10))),
-            pw.Expanded(
-              child: pw.Text(v, style: pw.TextStyle(fontSize: strong ? 12 : 10, fontWeight: strong ? pw.FontWeight.bold : null)),
-            ),
-          ]),
-        );
-
-    doc.addPage(pw.Page(
-      pageFormat: PdfPageFormat.a5,
-      margin: const pw.EdgeInsets.all(28),
-      build: (_) => pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+      child: pw.Row(
         children: [
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Expanded(
-                child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                  pw.Text(r.profile.name, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _ink)),
-                  pw.SizedBox(height: 2),
-                  pw.Text(r.profile.address, style: const pw.TextStyle(fontSize: 9, color: _muted)),
-                  pw.Text('${r.profile.ownerName} · +91 ${r.profile.ownerPhone}', style: const pw.TextStyle(fontSize: 9, color: _muted)),
-                ]),
-              ),
-              pw.Container(
-                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: pw.BoxDecoration(color: _brand, borderRadius: pw.BorderRadius.circular(6)),
-                child: pw.Text(isReversal ? 'REVERSAL' : 'RENT RECEIPT',
-                    style: pw.TextStyle(color: PdfColors.white, fontSize: 9, fontWeight: pw.FontWeight.bold, letterSpacing: 1)),
-              ),
-            ],
+          pw.SizedBox(
+            width: 140,
+            child: pw.Text(k, style: const pw.TextStyle(color: _muted, fontSize: 10)),
           ),
-          pw.SizedBox(height: 18),
-          pw.Container(
-            width: double.infinity,
-            padding: const pw.EdgeInsets.all(14),
-            decoration: pw.BoxDecoration(color: _soft, borderRadius: pw.BorderRadius.circular(8)),
-            child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-              pw.Text(isReversal ? 'Amount reversed' : 'Amount received', style: const pw.TextStyle(fontSize: 9, color: _muted)),
-              pw.SizedBox(height: 2),
-              pw.Text(Money.format(p0.amountPaise.abs()), style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: _ink)),
-              pw.Text(_inWords(p0.amountPaise.abs()), style: const pw.TextStyle(fontSize: 9, color: _muted)),
-            ]),
-          ),
-          pw.SizedBox(height: 14),
-          kv('Receipt number', p0.receiptNumber, strong: true),
-          kv('Payment date', Dates.short(p0.paymentDate)),
-          kv('Received from', r.tenant.fullName),
-          if (r.roomLabel != null) kv('Room', r.roomLabel!),
-          kv('Payment method', p0.method.label),
-          if (p0.upiReference != null) kv('UPI reference (UTR)', p0.upiReference!),
-          if (months.isNotEmpty) kv('Rent for', months),
-          kv('Transaction ID', p0.transactionId),
-          pw.SizedBox(height: 10),
-          if (r.lines.isNotEmpty) ...[
-            pw.Divider(color: _line),
-            for (final l in r.lines)
-              pw.Padding(
-                padding: const pw.EdgeInsets.symmetric(vertical: 3),
-                child: pw.Row(children: [
-                  pw.Expanded(
-                      child: pw.Text('${Dates.monthYear(l.period)} rent · ${l.invoiceNumber}', style: const pw.TextStyle(fontSize: 10))),
-                  pw.Text(Money.format(l.amountPaise), style: const pw.TextStyle(fontSize: 10)),
-                ]),
-              ),
-          ],
-          pw.Divider(color: _line),
-          pw.Row(children: [
-            pw.Expanded(child: pw.Text('Outstanding balance', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold))),
-            pw.Text(Money.format(r.outstandingPaise), style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-          ]),
-          if (r.creditPaise > 0)
-            pw.Padding(
-              padding: const pw.EdgeInsets.only(top: 4),
-              child: pw.Row(children: [
-                pw.Expanded(child: pw.Text('Advance credit', style: const pw.TextStyle(fontSize: 10, color: _muted))),
-                pw.Text(Money.format(r.creditPaise), style: const pw.TextStyle(fontSize: 10, color: _muted)),
-              ]),
+          pw.Expanded(
+            child: pw.Text(
+              v,
+              style: pw.TextStyle(fontSize: strong ? 12 : 10, fontWeight: strong ? pw.FontWeight.bold : null),
             ),
-          pw.Spacer(),
-          pw.Divider(color: _line),
-          pw.Text(
-            p0.status == PaymentStatus.pendingVerification
-                ? 'UPI payment awaiting owner verification. This is not yet a confirmed receipt.'
-                : 'Computer-generated receipt from ${r.profile.name}. No signature required.',
-            style: const pw.TextStyle(fontSize: 8, color: _muted),
           ),
         ],
       ),
-    ));
+    );
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a5,
+        margin: const pw.EdgeInsets.all(28),
+        build: (_) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        r.profile.name,
+                        style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _ink),
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(r.profile.address, style: const pw.TextStyle(fontSize: 9, color: _muted)),
+                      pw.Text(
+                        '${r.profile.ownerName} · +91 ${r.profile.ownerPhone}',
+                        style: const pw.TextStyle(fontSize: 9, color: _muted),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: pw.BoxDecoration(color: _brand, borderRadius: pw.BorderRadius.circular(6)),
+                  child: pw.Text(
+                    isReversal ? 'REVERSAL' : 'RENT RECEIPT',
+                    style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 18),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(14),
+              decoration: pw.BoxDecoration(color: _soft, borderRadius: pw.BorderRadius.circular(8)),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    isReversal ? 'Amount reversed' : 'Amount received',
+                    style: const pw.TextStyle(fontSize: 9, color: _muted),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    Money.format(p0.amountPaise.abs()),
+                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: _ink),
+                  ),
+                  pw.Text(_inWords(p0.amountPaise.abs()), style: const pw.TextStyle(fontSize: 9, color: _muted)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 14),
+            kv('Receipt number', p0.receiptNumber, strong: true),
+            kv('Payment date', Dates.short(p0.paymentDate)),
+            kv('Received from', r.tenant.fullName),
+            if (r.roomLabel != null) kv('Room', r.roomLabel!),
+            kv('Payment method', p0.method.label),
+            if (p0.upiReference != null) kv('UPI reference (UTR)', p0.upiReference!),
+            if (months.isNotEmpty) kv('Rent for', months),
+            kv('Transaction ID', p0.transactionId),
+            pw.SizedBox(height: 10),
+            if (r.lines.isNotEmpty) ...[
+              pw.Divider(color: _line),
+              for (final l in r.lines)
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 3),
+                  child: pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: pw.Text(
+                          '${Dates.monthYear(l.period)} rent · ${l.invoiceNumber}',
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
+                      ),
+                      pw.Text(Money.format(l.amountPaise), style: const pw.TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ),
+            ],
+            pw.Divider(color: _line),
+            pw.Row(
+              children: [
+                pw.Expanded(
+                  child: pw.Text(
+                    'Outstanding balance',
+                    style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+                  ),
+                ),
+                pw.Text(
+                  Money.format(r.outstandingPaise),
+                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+                ),
+              ],
+            ),
+            if (r.creditPaise > 0)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 4),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(
+                      child: pw.Text('Advance credit', style: const pw.TextStyle(fontSize: 10, color: _muted)),
+                    ),
+                    pw.Text(Money.format(r.creditPaise), style: const pw.TextStyle(fontSize: 10, color: _muted)),
+                  ],
+                ),
+              ),
+            pw.Spacer(),
+            pw.Divider(color: _line),
+            pw.Text(
+              p0.status == PaymentStatus.pendingVerification
+                  ? 'UPI payment awaiting owner verification. This is not yet a confirmed receipt.'
+                  : 'Computer-generated receipt from ${r.profile.name}. No signature required.',
+              style: const pw.TextStyle(fontSize: 8, color: _muted),
+            ),
+          ],
+        ),
+      ),
+    );
     return doc.save();
   }
 
@@ -144,8 +199,28 @@ class ExportService {
   }
 
   static String _words(int n) {
-    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
-      'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const ones = [
+      '',
+      'One',
+      'Two',
+      'Three',
+      'Four',
+      'Five',
+      'Six',
+      'Seven',
+      'Eight',
+      'Nine',
+      'Ten',
+      'Eleven',
+      'Twelve',
+      'Thirteen',
+      'Fourteen',
+      'Fifteen',
+      'Sixteen',
+      'Seventeen',
+      'Eighteen',
+      'Nineteen',
+    ];
     const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
     String two(int x) => x < 20 ? ones[x] : '${tens[x ~/ 10]}${x % 10 > 0 ? ' ${ones[x % 10]}' : ''}';
     String three(int x) => x >= 100 ? '${ones[x ~/ 100]} Hundred${x % 100 > 0 ? ' ${two(x % 100)}' : ''}' : two(x);
@@ -164,63 +239,84 @@ class ExportService {
     final theme = await _pdfTheme();
     final doc = pw.Document(title: t.title, author: pgName, theme: theme);
     final wide = t.columns.length > 5;
-    doc.addPage(pw.MultiPage(
-      pageFormat: wide ? PdfPageFormat.a4.landscape : PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(32),
-      header: (c) => pw.Padding(
-        padding: const pw.EdgeInsets.only(bottom: 12),
-        child: pw.Row(children: [
-          pw.Expanded(
-            child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-              pw.Text(t.title, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _ink)),
-              pw.Text('$pgName · ${t.subtitle}', style: const pw.TextStyle(fontSize: 9, color: _muted)),
-            ]),
-          ),
-          pw.Text('Page ${c.pageNumber}/${c.pagesCount}', style: const pw.TextStyle(fontSize: 8, color: _muted)),
-        ]),
-      ),
-      footer: (c) => pw.Text('Generated ${Dates.short(DateTime.now())} by PG Manager',
-          style: const pw.TextStyle(fontSize: 8, color: _muted)),
-      build: (_) => [
-        if (t.summary.isNotEmpty)
-          pw.Wrap(spacing: 10, runSpacing: 10, children: [
-            for (final s in t.summary)
-              pw.Container(
-                width: 150,
-                padding: const pw.EdgeInsets.all(10),
-                decoration: pw.BoxDecoration(color: _soft, borderRadius: pw.BorderRadius.circular(6)),
-                child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                  pw.Text(s.$1, style: const pw.TextStyle(fontSize: 8, color: _muted)),
-                  pw.SizedBox(height: 2),
-                  pw.Text(s.$2, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                ]),
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: wide ? PdfPageFormat.a4.landscape : PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        header: (c) => pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 12),
+          child: pw.Row(
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      t.title,
+                      style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _ink),
+                    ),
+                    pw.Text('$pgName · ${t.subtitle}', style: const pw.TextStyle(fontSize: 9, color: _muted)),
+                  ],
+                ),
               ),
-          ]),
-        pw.SizedBox(height: 14),
-        if (t.rows.isEmpty)
-          pw.Text('No records for this period.', style: const pw.TextStyle(color: _muted))
-        else
-          pw.TableHelper.fromTextArray(
-            headers: [for (final c in t.columns) c.label],
-            data: t.rows,
-            headerStyle: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
-            headerDecoration: const pw.BoxDecoration(color: _brand),
-            cellStyle: const pw.TextStyle(fontSize: 8.5),
-            oddRowDecoration: const pw.BoxDecoration(color: _soft),
-            border: null,
-            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-            columnWidths: {for (var i = 0; i < t.columns.length; i++) i: pw.FlexColumnWidth(t.columns[i].flex.toDouble())},
-            cellAlignments: {
-              for (var i = 0; i < t.columns.length; i++)
-                i: t.columns[i].align == ColumnAlign.right ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
-            },
+              pw.Text('Page ${c.pageNumber}/${c.pagesCount}', style: const pw.TextStyle(fontSize: 8, color: _muted)),
+            ],
           ),
-        if (t.footer != null) ...[
-          pw.SizedBox(height: 10),
-          for (final f in t.footer!) pw.Text(f, style: const pw.TextStyle(fontSize: 9, color: _muted)),
+        ),
+        footer: (c) => pw.Text(
+          'Generated ${Dates.short(DateTime.now())} by PG Manager',
+          style: const pw.TextStyle(fontSize: 8, color: _muted),
+        ),
+        build: (_) => [
+          if (t.summary.isNotEmpty)
+            pw.Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final s in t.summary)
+                  pw.Container(
+                    width: 150,
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(color: _soft, borderRadius: pw.BorderRadius.circular(6)),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(s.$1, style: const pw.TextStyle(fontSize: 8, color: _muted)),
+                        pw.SizedBox(height: 2),
+                        pw.Text(s.$2, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          pw.SizedBox(height: 14),
+          if (t.rows.isEmpty)
+            pw.Text('No records for this period.', style: const pw.TextStyle(color: _muted))
+          else
+            pw.TableHelper.fromTextArray(
+              headers: [for (final c in t.columns) c.label],
+              data: t.rows,
+              headerStyle: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              headerDecoration: const pw.BoxDecoration(color: _brand),
+              cellStyle: const pw.TextStyle(fontSize: 8.5),
+              oddRowDecoration: const pw.BoxDecoration(color: _soft),
+              border: null,
+              cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+              columnWidths: {
+                for (var i = 0; i < t.columns.length; i++) i: pw.FlexColumnWidth(t.columns[i].flex.toDouble()),
+              },
+              cellAlignments: {
+                for (var i = 0; i < t.columns.length; i++)
+                  i: t.columns[i].align == ColumnAlign.right ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
+              },
+            ),
+          if (t.footer != null) ...[
+            pw.SizedBox(height: 10),
+            for (final f in t.footer!) pw.Text(f, style: const pw.TextStyle(fontSize: 9, color: _muted)),
+          ],
         ],
-      ],
-    ));
+      ),
+    );
     return doc.save();
   }
 
@@ -251,7 +347,12 @@ class ExportService {
   }
 
   Future<void> shareFile(File file, {String? text, required String mime}) async {
-    await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: mime)], text: text));
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: mime)],
+        text: text,
+      ),
+    );
   }
 
   Future<void> shareCsv(ReportTable t, String fileName) async {
@@ -263,18 +364,32 @@ class ExportService {
 
   /// Opens WhatsApp with a message, optionally to a specific number.
   Future<bool> whatsapp(String text, {String? phone}) {
-    final to = phone == null ? '' : '91${phone.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^91(?=\d{10}$)'), '')}';
-    return launchUrl(Uri.parse('https://wa.me/$to?text=${Uri.encodeComponent(text)}'), mode: LaunchMode.externalApplication);
+    final to = phone == null
+        ? ''
+        : '91${phone.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^91(?=\d{10}$)'), '')}';
+    return launchUrl(
+      Uri.parse('https://wa.me/$to?text=${Uri.encodeComponent(text)}'),
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   /// UPI intent for the owner's UPI ID, pre-filled with amount and note.
-  static Uri upiUri({required String upiId, required String payeeName, required int amountPaise, required String note}) {
-    return Uri(scheme: 'upi', host: 'pay', queryParameters: {
-      'pa': upiId,
-      'pn': payeeName,
-      'am': (amountPaise / 100).toStringAsFixed(2),
-      'cu': 'INR',
-      'tn': note,
-    });
+  static Uri upiUri({
+    required String upiId,
+    required String payeeName,
+    required int amountPaise,
+    required String note,
+  }) {
+    return Uri(
+      scheme: 'upi',
+      host: 'pay',
+      queryParameters: {
+        'pa': upiId,
+        'pn': payeeName,
+        'am': (amountPaise / 100).toStringAsFixed(2),
+        'cu': 'INR',
+        'tn': note,
+      },
+    );
   }
 }

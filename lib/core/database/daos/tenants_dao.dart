@@ -107,25 +107,25 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
   static const currentStatuses = [TenantStatus.newTenant, TenantStatus.active, TenantStatus.noticeGiven];
 
   TenantsCompanion _companion(TenantInput i) => TenantsCompanion(
-        fullName: Value(i.fullName.trim()),
-        phone: Value(i.phone.trim()),
-        email: Value(_n(i.email)),
-        gender: Value(i.gender),
-        photoPath: Value(i.photoPath),
-        idProofType: Value(_n(i.idProofType)),
-        idProofNumber: Value(_n(i.idProofNumber)),
-        idProofPath: Value(i.idProofPath),
-        emergencyContactName: Value(_n(i.emergencyContactName)),
-        emergencyContactPhone: Value(_n(i.emergencyContactPhone)),
-        occupation: Value(_n(i.occupation)),
-        joiningDate: Value(DateTime(i.joiningDate.year, i.joiningDate.month, i.joiningDate.day)),
-        monthlyRentPaise: Value(i.monthlyRentPaise),
-        securityDepositPaise: Value(i.securityDepositPaise),
-        advancePaise: Value(i.advancePaise),
-        rentDueDay: Value(i.rentDueDay),
-        notes: Value(_n(i.notes)),
-        updatedAt: Value(DateTime.now()),
-      );
+    fullName: Value(i.fullName.trim()),
+    phone: Value(i.phone.trim()),
+    email: Value(_n(i.email)),
+    gender: Value(i.gender),
+    photoPath: Value(i.photoPath),
+    idProofType: Value(_n(i.idProofType)),
+    idProofNumber: Value(_n(i.idProofNumber)),
+    idProofPath: Value(i.idProofPath),
+    emergencyContactName: Value(_n(i.emergencyContactName)),
+    emergencyContactPhone: Value(_n(i.emergencyContactPhone)),
+    occupation: Value(_n(i.occupation)),
+    joiningDate: Value(DateTime(i.joiningDate.year, i.joiningDate.month, i.joiningDate.day)),
+    monthlyRentPaise: Value(i.monthlyRentPaise),
+    securityDepositPaise: Value(i.securityDepositPaise),
+    advancePaise: Value(i.advancePaise),
+    rentDueDay: Value(i.rentDueDay),
+    notes: Value(_n(i.notes)),
+    updatedAt: Value(DateTime.now()),
+  );
 
   Future<void> _checkPhone(String phone, {int? exceptId}) async {
     final q = select(tenants)..where((t) => t.phone.equals(phone.trim()) & t.status.isInValues(currentStatuses));
@@ -145,21 +145,25 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
   }) {
     return transaction(() async {
       await _checkPhone(input.phone);
-      final id = await into(tenants).insert(_companion(input).copyWith(
-        status: Value(bedId == null ? TenantStatus.newTenant : TenantStatus.active),
-        createdAt: Value(DateTime.now()),
-      ));
+      final id = await into(tenants).insert(
+        _companion(input).copyWith(
+          status: Value(bedId == null ? TenantStatus.newTenant : TenantStatus.active),
+          createdAt: Value(DateTime.now()),
+        ),
+      );
       if (bedId != null) await _allocate(id, bedId, input.joiningDate, input.monthlyRentPaise);
       if (input.advancePaise > 0) {
-        await db.billingDao.recordPayment(PaymentInput(
-          tenantId: id,
-          amountPaise: input.advancePaise,
-          method: advanceMethod,
-          date: input.joiningDate,
-          upiReference: advanceUpiReference,
-          upiVerified: true,
-          notes: 'Advance paid at joining',
-        ));
+        await db.billingDao.recordPayment(
+          PaymentInput(
+            tenantId: id,
+            amountPaise: input.advancePaise,
+            method: advanceMethod,
+            date: input.joiningDate,
+            upiReference: advanceUpiReference,
+            upiVerified: true,
+            notes: 'Advance paid at joining',
+          ),
+        );
       }
       if (bedId != null && generateFirstInvoice) {
         final j = input.joiningDate;
@@ -181,8 +185,9 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
       await _checkPhone(input.phone, exceptId: id);
       final c = _companion(input);
       // Deposit and advance are fixed at joining; changes go through payments.
-      await (update(tenants)..where((t) => t.id.equals(id)))
-          .write(c.copyWith(advancePaise: const Value.absent(), joiningDate: const Value.absent()));
+      await (update(tenants)..where((t) => t.id.equals(id))).write(
+        c.copyWith(advancePaise: const Value.absent(), joiningDate: const Value.absent()),
+      );
       await db.settingsDao.log('tenant', id, 'update');
     });
   }
@@ -191,17 +196,21 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
     final bed = await (select(beds)..where((b) => b.id.equals(bedId))).getSingle();
     if (!bed.isActive) throw RuleException('This bed is no longer in use.');
     if (bed.status == BedStatus.maintenance) throw RuleException('This bed is under maintenance.');
-    final taken = await (select(allocations)..where((a) => a.bedId.equals(bedId) & a.isActive.equals(true)))
-        .getSingleOrNull();
+    final taken = await (select(
+      allocations,
+    )..where((a) => a.bedId.equals(bedId) & a.isActive.equals(true))).getSingleOrNull();
     if (taken != null) throw RuleException('This bed is already occupied.');
-    await into(allocations).insert(AllocationsCompanion.insert(
-      tenantId: tenantId,
-      bedId: bedId,
-      startDate: DateTime(start.year, start.month, start.day),
-      rentPaise: rentPaise,
-    ));
-    await (update(beds)..where((b) => b.id.equals(bedId)))
-        .write(BedsCompanion(status: const Value(BedStatus.occupied), updatedAt: Value(DateTime.now())));
+    await into(allocations).insert(
+      AllocationsCompanion.insert(
+        tenantId: tenantId,
+        bedId: bedId,
+        startDate: DateTime(start.year, start.month, start.day),
+        rentPaise: rentPaise,
+      ),
+    );
+    await (update(beds)..where((b) => b.id.equals(bedId))).write(
+      BedsCompanion(status: const Value(BedStatus.occupied), updatedAt: Value(DateTime.now())),
+    );
   }
 
   /// Assigns a bed to a tenant who has none yet.
@@ -210,8 +219,9 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
       final t = await (select(tenants)..where((x) => x.id.equals(tenantId))).getSingle();
       await _allocate(tenantId, bedId, date, t.monthlyRentPaise);
       if (t.status == TenantStatus.newTenant) {
-        await (update(tenants)..where((x) => x.id.equals(tenantId)))
-            .write(const TenantsCompanion(status: Value(TenantStatus.active)));
+        await (update(
+          tenants,
+        )..where((x) => x.id.equals(tenantId))).write(const TenantsCompanion(status: Value(TenantStatus.active)));
       }
       await db.settingsDao.log('tenant', tenantId, 'assign_bed', '$bedId');
     });
@@ -221,25 +231,35 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
   /// A new rent applies from the next invoice.
   Future<void> transfer(int tenantId, int newBedId, DateTime date, {int? newRentPaise}) {
     return transaction(() async {
-      final current = await (select(allocations)..where((a) => a.tenantId.equals(tenantId) & a.isActive.equals(true)))
-          .getSingleOrNull();
+      final current = await (select(
+        allocations,
+      )..where((a) => a.tenantId.equals(tenantId) & a.isActive.equals(true))).getSingleOrNull();
       if (current == null) throw RuleException('This tenant has no bed to transfer from.');
       if (current.bedId == newBedId) throw RuleException('Choose a different bed.');
       final t = await (select(tenants)..where((x) => x.id.equals(tenantId))).getSingle();
-      await (update(allocations)..where((a) => a.id.equals(current.id))).write(AllocationsCompanion(
-        isActive: const Value(false),
-        endDate: Value(DateTime(date.year, date.month, date.day)),
-        endReason: const Value('transfer'),
-      ));
-      await (update(beds)..where((b) => b.id.equals(current.bedId)))
-          .write(BedsCompanion(status: const Value(BedStatus.available), updatedAt: Value(DateTime.now())));
+      await (update(allocations)..where((a) => a.id.equals(current.id))).write(
+        AllocationsCompanion(
+          isActive: const Value(false),
+          endDate: Value(DateTime(date.year, date.month, date.day)),
+          endReason: const Value('transfer'),
+        ),
+      );
+      await (update(beds)..where((b) => b.id.equals(current.bedId))).write(
+        BedsCompanion(status: const Value(BedStatus.available), updatedAt: Value(DateTime.now())),
+      );
       final rent = newRentPaise ?? t.monthlyRentPaise;
       await _allocate(tenantId, newBedId, date, rent);
       if (newRentPaise != null && newRentPaise != t.monthlyRentPaise) {
-        await (update(tenants)..where((x) => x.id.equals(tenantId)))
-            .write(TenantsCompanion(monthlyRentPaise: Value(newRentPaise), updatedAt: Value(DateTime.now())));
+        await (update(tenants)..where((x) => x.id.equals(tenantId))).write(
+          TenantsCompanion(monthlyRentPaise: Value(newRentPaise), updatedAt: Value(DateTime.now())),
+        );
       }
-      await db.settingsDao.log('tenant', tenantId, 'transfer', 'bed ${current.bedId} → $newBedId, ${Money.format(rent)}');
+      await db.settingsDao.log(
+        'tenant',
+        tenantId,
+        'transfer',
+        'bed ${current.bedId} → $newBedId, ${Money.format(rent)}',
+      );
     });
   }
 
@@ -248,24 +268,28 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
       throw RuleException('Checkout date must be on or after the notice date.');
     }
     return transaction(() async {
-      await (update(tenants)..where((t) => t.id.equals(tenantId))).write(TenantsCompanion(
-        status: const Value(TenantStatus.noticeGiven),
-        noticeDate: Value(noticeDate),
-        expectedCheckoutDate: Value(expectedCheckout),
-        updatedAt: Value(DateTime.now()),
-      ));
+      await (update(tenants)..where((t) => t.id.equals(tenantId))).write(
+        TenantsCompanion(
+          status: const Value(TenantStatus.noticeGiven),
+          noticeDate: Value(noticeDate),
+          expectedCheckoutDate: Value(expectedCheckout),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
       await db.settingsDao.log('tenant', tenantId, 'notice');
     });
   }
 
   Future<void> withdrawNotice(int tenantId) {
     return transaction(() async {
-      await (update(tenants)..where((t) => t.id.equals(tenantId))).write(TenantsCompanion(
-        status: const Value(TenantStatus.active),
-        noticeDate: const Value(null),
-        expectedCheckoutDate: const Value(null),
-        updatedAt: Value(DateTime.now()),
-      ));
+      await (update(tenants)..where((t) => t.id.equals(tenantId))).write(
+        TenantsCompanion(
+          status: const Value(TenantStatus.active),
+          noticeDate: const Value(null),
+          expectedCheckoutDate: const Value(null),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
       await db.settingsDao.log('tenant', tenantId, 'notice_withdrawn');
     });
   }
@@ -277,8 +301,9 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
       if (await db.billingDao.tenantOutstanding(tenantId) > 0) {
         throw RuleException('Clear the pending dues before archiving.');
       }
-      await (update(tenants)..where((x) => x.id.equals(tenantId)))
-          .write(TenantsCompanion(status: const Value(TenantStatus.archived), updatedAt: Value(DateTime.now())));
+      await (update(tenants)..where((x) => x.id.equals(tenantId))).write(
+        TenantsCompanion(status: const Value(TenantStatus.archived), updatedAt: Value(DateTime.now())),
+      );
       await db.settingsDao.log('tenant', tenantId, 'archive');
     });
   }
@@ -295,7 +320,9 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
     DateTime? today,
   }) {
     final where = <String>[];
-    final vars = <Variable>[Variable.withDateTime(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day))];
+    final vars = <Variable>[
+      Variable.withDateTime(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)),
+    ];
     switch (filter) {
       case TenantFilter.current:
         where.add("t.status IN ('newTenant','active','noticeGiven')");
@@ -330,33 +357,37 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
          ORDER BY $order''',
       variables: vars,
       readsFrom: {tenants, allocations, rentInvoices, beds, rooms},
-    ).watch().asyncMap((rows) async => [
-          for (final r in rows)
-            TenantListItem(
-              tenant: await tenants.mapFromRow(r),
-              roomLabel: r.read<String?>('room_label'),
-              duesPaise: r.read<int>('dues'),
-              overdue: r.read<bool>('overdue'),
-            ),
-        ]);
+    ).watch().asyncMap(
+      (rows) async => [
+        for (final r in rows)
+          TenantListItem(
+            tenant: await tenants.mapFromRow(r),
+            roomLabel: r.read<String?>('room_label'),
+            duesPaise: r.read<int>('dues'),
+            overdue: r.read<bool>('overdue'),
+          ),
+      ],
+    );
   }
 
   Stream<TenantDetail?> watchTenant(int id) {
-    return customSelect('SELECT 1', readsFrom: {tenants, allocations, rentInvoices, payments, paymentAllocations, beds, rooms})
-        .watch()
-        .asyncMap((_) => tenantDetail(id));
+    return customSelect(
+      'SELECT 1',
+      readsFrom: {tenants, allocations, rentInvoices, payments, paymentAllocations, beds, rooms},
+    ).watch().asyncMap((_) => tenantDetail(id));
   }
 
   Future<TenantDetail?> tenantDetail(int id) async {
     final t = await (select(tenants)..where((x) => x.id.equals(id))).getSingleOrNull();
     if (t == null) return null;
-    final rows = await (select(allocations).join([
-      innerJoin(beds, beds.id.equalsExp(allocations.bedId)),
-      innerJoin(rooms, rooms.id.equalsExp(beds.roomId)),
-    ])
-          ..where(allocations.tenantId.equals(id))
-          ..orderBy([OrderingTerm.desc(allocations.startDate), OrderingTerm.desc(allocations.id)]))
-        .get();
+    final rows =
+        await (select(allocations).join([
+                innerJoin(beds, beds.id.equalsExp(allocations.bedId)),
+                innerJoin(rooms, rooms.id.equalsExp(beds.roomId)),
+              ])
+              ..where(allocations.tenantId.equals(id))
+              ..orderBy([OrderingTerm.desc(allocations.startDate), OrderingTerm.desc(allocations.id)]))
+            .get();
     final history = [
       for (final r in rows) AllocationView(r.readTable(allocations), r.readTable(rooms), r.readTable(beds)),
     ];
@@ -371,12 +402,10 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
 
   /// Beds a tenant can move into: active, not occupied, not under maintenance.
   Future<List<FreeBed>> freeBeds() async {
-    final rows = await customSelect(
-      '''SELECT b.id AS bed_id FROM beds b JOIN rooms r ON r.id = b.room_id
+    final rows = await customSelect('''SELECT b.id AS bed_id FROM beds b JOIN rooms r ON r.id = b.room_id
          WHERE b.is_active = 1 AND r.is_active = 1 AND b.status <> 'maintenance'
            AND NOT EXISTS (SELECT 1 FROM allocations a WHERE a.bed_id = b.id AND a.is_active = 1)
-         ORDER BY r.floor, r.room_number, b.label''',
-    ).get();
+         ORDER BY r.floor, r.room_number, b.label''').get();
     final out = <FreeBed>[];
     for (final r in rows) {
       final bed = await (select(beds)..where((b) => b.id.equals(r.read<int>('bed_id')))).getSingle();

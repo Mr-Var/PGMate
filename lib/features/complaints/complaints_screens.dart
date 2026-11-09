@@ -34,7 +34,9 @@ final _complaintsProvider = StreamProvider<List<ComplaintView>>((ref) {
   return ref.watch(databaseProvider).opsDao.watchComplaints(status: ref.watch(_statusFilterProvider));
 });
 
-final _allComplaintsProvider = StreamProvider<List<ComplaintView>>((ref) => ref.watch(databaseProvider).opsDao.watchComplaints());
+final _allComplaintsProvider = StreamProvider<List<ComplaintView>>(
+  (ref) => ref.watch(databaseProvider).opsDao.watchComplaints(),
+);
 
 class ComplaintsScreen extends ConsumerWidget {
   const ComplaintsScreen({super.key});
@@ -48,53 +50,58 @@ class ComplaintsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Complaints')),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: () => context.push('/more/complaints/new'),
         icon: const Icon(Icons.add_rounded),
         label: const Text('New complaint'),
       ),
-      body: Column(children: [
-        SizedBox(
-          height: 48,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
-            children: [
-              ChoiceChip(
-                label: Text('All ${all.length}'),
-                selected: filter == null,
-                showCheckmark: false,
-                onSelected: (_) => ref.read(_statusFilterProvider.notifier).set(null),
-              ),
-              for (final s in ComplaintStatus.values) ...[
-                const SizedBox(width: Gap.sm),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 48,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
+              children: [
                 ChoiceChip(
-                  label: Text('${s.label} ${count(s)}'),
-                  selected: filter == s,
+                  label: Text('All ${all.length}'),
+                  selected: filter == null,
                   showCheckmark: false,
-                  onSelected: (_) => ref.read(_statusFilterProvider.notifier).set(s),
+                  onSelected: (_) => ref.read(_statusFilterProvider.notifier).set(null),
                 ),
-              ],
-            ],
-          ),
-        ),
-        Expanded(
-          child: list.when(
-            skipLoadingOnReload: true,
-            loading: () => const LoadingList(),
-            error: (e, _) => ErrorState(error: e),
-            data: (l) => l.isEmpty
-                ? EmptyState(
-                    icon: Icons.handyman_outlined,
-                    title: filter == null ? 'No complaints' : 'Nothing ${filter.label.toLowerCase()}',
-                    message: 'Log maintenance issues from tenants to track them until they are fixed.',
-                  )
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, 96),
-                    children: [TileGroup(indent: 68, children: [for (final c in l) ComplaintTile(view: c)])],
+                for (final s in ComplaintStatus.values) ...[
+                  const SizedBox(width: Gap.sm),
+                  ChoiceChip(
+                    label: Text('${s.label} ${count(s)}'),
+                    selected: filter == s,
+                    showCheckmark: false,
+                    onSelected: (_) => ref.read(_statusFilterProvider.notifier).set(s),
                   ),
+                ],
+              ],
+            ),
           ),
-        ),
-      ]),
+          Expanded(
+            child: list.when(
+              skipLoadingOnReload: true,
+              loading: () => const LoadingList(),
+              error: (e, _) => ErrorState(error: e),
+              data: (l) => l.isEmpty
+                  ? EmptyState(
+                      icon: Icons.handyman_outlined,
+                      title: filter == null ? 'No complaints' : 'Nothing ${filter.label.toLowerCase()}',
+                      message: 'Log maintenance issues from tenants to track them until they are fixed.',
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, 96),
+                      children: [
+                        TileGroup(indent: 68, children: [for (final c in l) ComplaintTile(view: c)]),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -125,11 +132,16 @@ class _ComplaintFormScreenState extends ConsumerState<ComplaintFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final files = ref.read(fileStoreProvider);
-    final paths = <String>[for (final img in _images) await files.save(img.$1, folder: 'complaints', extension: img.$2)];
+    final paths = <String>[
+      for (final img in _images) await files.save(img.$1, folder: 'complaints', extension: img.$2),
+    ];
     if (!mounted) return;
     final ok = await runGuarded(
       context,
-      () => ref.read(databaseProvider).opsDao.addComplaint(
+      () => ref
+          .read(databaseProvider)
+          .opsDao
+          .addComplaint(
             tenantId: _tenantId,
             roomId: _roomId,
             category: _category!,
@@ -153,102 +165,134 @@ class _ComplaintFormScreenState extends ConsumerState<ComplaintFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
           children: [
-            FormSection(title: 'What is wrong?', children: [
-              Wrap(spacing: Gap.sm, runSpacing: Gap.sm, children: [
-                for (final c in complaintCategories)
-                  ChoiceChip(
-                    avatar: Icon(complaintIcon(c), size: 18),
-                    label: Text(c),
-                    selected: _category == c,
-                    showCheckmark: false,
-                    onSelected: (_) => setState(() => _category = c),
-                  ),
-              ]),
-              FormField<String>(
-                validator: (_) => _category == null ? 'Choose a category' : null,
-                builder: (s) => s.hasError
-                    ? Text(s.errorText!, style: const TextStyle(color: AppColors.danger, fontSize: 12))
-                    : const SizedBox.shrink(),
-              ),
-              TextFormField(
-                controller: _desc,
-                minLines: 3,
-                maxLines: 6,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(labelText: 'Description', hintText: 'e.g. Bathroom tap leaking since morning'),
-                validator: (v) => Validators.required(v, 'Description', min: 5, max: 2000),
-              ),
-              SegmentedButton<ComplaintPriority>(
-                segments: [for (final p in ComplaintPriority.values) ButtonSegment(value: p, label: Text(p.label))],
-                selected: {_priority},
-                showSelectedIcon: false,
-                onSelectionChanged: (s) => setState(() => _priority = s.first),
-              ),
-            ]),
-            FormSection(title: 'Who and where', children: [
-              DropdownButtonFormField<int?>(
-                isExpanded: true,
-                initialValue: _tenantId,
-                decoration: const InputDecoration(labelText: 'Tenant (optional)'),
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Not tenant-specific')),
-                  for (final t in tenants)
-                    DropdownMenuItem<int?>(value: t.tenant.id, child: Text('${t.tenant.fullName}${t.roomLabel == null ? '' : ' · ${t.roomLabel}'}')),
-                ],
-                onChanged: (v) => setState(() => _tenantId = v),
-              ),
-              DropdownButtonFormField<int?>(
-                isExpanded: true,
-                initialValue: _roomId,
-                decoration: const InputDecoration(labelText: 'Room (optional)'),
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('Common area / not specific')),
-                  for (final r in rooms)
-                    DropdownMenuItem<int?>(value: r.room.id, child: Text('Room ${r.room.roomNumber} · ${Dates.floorLabel(r.room.floor)}')),
-                ],
-                onChanged: (v) => setState(() => _roomId = v),
-              ),
-            ]),
-            FormSection(title: 'Photos', subtitle: 'Optional. Stored privately on this phone.', children: [
-              Wrap(spacing: Gap.sm, runSpacing: Gap.sm, children: [
-                for (final (i, img) in _images.indexed)
-                  Stack(children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(Radii.md),
-                      child: Image.memory(img.$1, width: 88, height: 88, fit: BoxFit.cover),
-                    ),
-                    Positioned(
-                      right: 2,
-                      top: 2,
-                      child: IconButton.filled(
-                        tooltip: 'Remove photo',
-                        iconSize: 16,
-                        style: IconButton.styleFrom(minimumSize: const Size(28, 28), backgroundColor: Colors.black54),
-                        onPressed: () => setState(() => _images.removeAt(i)),
-                        icon: const Icon(Icons.close_rounded),
+            FormSection(
+              title: 'What is wrong?',
+              children: [
+                Wrap(
+                  spacing: Gap.sm,
+                  runSpacing: Gap.sm,
+                  children: [
+                    for (final c in complaintCategories)
+                      ChoiceChip(
+                        avatar: Icon(complaintIcon(c), size: 18),
+                        label: Text(c),
+                        selected: _category == c,
+                        showCheckmark: false,
+                        onSelected: (_) => setState(() => _category = c),
                       ),
-                    ),
-                  ]),
-                if (_images.length < 4)
-                  InkWell(
-                    borderRadius: BorderRadius.circular(Radii.md),
-                    onTap: () async {
-                      final img = await pickImage(context, title: 'Complaint photo');
-                      if (img != null) setState(() => _images.add(img));
-                    },
-                    child: Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
+                  ],
+                ),
+                FormField<String>(
+                  validator: (_) => _category == null ? 'Choose a category' : null,
+                  builder: (s) => s.hasError
+                      ? Text(s.errorText!, style: const TextStyle(color: AppColors.danger, fontSize: 12))
+                      : const SizedBox.shrink(),
+                ),
+                TextFormField(
+                  controller: _desc,
+                  minLines: 3,
+                  maxLines: 6,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'e.g. Bathroom tap leaking since morning',
+                  ),
+                  validator: (v) => Validators.required(v, 'Description', min: 5, max: 2000),
+                ),
+                SegmentedButton<ComplaintPriority>(
+                  segments: [for (final p in ComplaintPriority.values) ButtonSegment(value: p, label: Text(p.label))],
+                  selected: {_priority},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) => setState(() => _priority = s.first),
+                ),
+              ],
+            ),
+            FormSection(
+              title: 'Who and where',
+              children: [
+                DropdownButtonFormField<int?>(
+                  isExpanded: true,
+                  initialValue: _tenantId,
+                  decoration: const InputDecoration(labelText: 'Tenant (optional)'),
+                  items: [
+                    const DropdownMenuItem<int?>(value: null, child: Text('Not tenant-specific')),
+                    for (final t in tenants)
+                      DropdownMenuItem<int?>(
+                        value: t.tenant.id,
+                        child: Text('${t.tenant.fullName}${t.roomLabel == null ? '' : ' · ${t.roomLabel}'}'),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _tenantId = v),
+                ),
+                DropdownButtonFormField<int?>(
+                  isExpanded: true,
+                  initialValue: _roomId,
+                  decoration: const InputDecoration(labelText: 'Room (optional)'),
+                  items: [
+                    const DropdownMenuItem<int?>(value: null, child: Text('Common area / not specific')),
+                    for (final r in rooms)
+                      DropdownMenuItem<int?>(
+                        value: r.room.id,
+                        child: Text('Room ${r.room.roomNumber} · ${Dates.floorLabel(r.room.floor)}'),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _roomId = v),
+                ),
+              ],
+            ),
+            FormSection(
+              title: 'Photos',
+              subtitle: 'Optional. Stored privately on this phone.',
+              children: [
+                Wrap(
+                  spacing: Gap.sm,
+                  runSpacing: Gap.sm,
+                  children: [
+                    for (final (i, img) in _images.indexed)
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(Radii.md),
+                            child: Image.memory(img.$1, width: 88, height: 88, fit: BoxFit.cover),
+                          ),
+                          Positioned(
+                            right: 2,
+                            top: 2,
+                            child: IconButton.filled(
+                              tooltip: 'Remove photo',
+                              iconSize: 16,
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size(28, 28),
+                                backgroundColor: Colors.black54,
+                              ),
+                              onPressed: () => setState(() => _images.removeAt(i)),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (_images.length < 4)
+                      InkWell(
                         borderRadius: BorderRadius.circular(Radii.md),
-                        border: Border.all(color: AppColors.border),
-                        color: AppColors.surface,
+                        onTap: () async {
+                          final img = await pickImage(context, title: 'Complaint photo');
+                          if (img != null) setState(() => _images.add(img));
+                        },
+                        child: Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(Radii.md),
+                            border: Border.all(color: AppColors.border),
+                            color: AppColors.surface,
+                          ),
+                          child: const Icon(Icons.add_a_photo_outlined, color: AppColors.textMuted),
+                        ),
                       ),
-                      child: const Icon(Icons.add_a_photo_outlined, color: AppColors.textMuted),
-                    ),
-                  ),
-              ]),
-            ]),
+                  ],
+                ),
+              ],
+            ),
             AsyncButton(label: 'Log complaint', onPressed: _save),
           ],
         ),
@@ -272,7 +316,11 @@ class ComplaintDetailScreen extends ConsumerWidget {
         data: (l) {
           final v = l.where((c) => c.complaint.id == complaintId).firstOrNull;
           if (v == null) {
-            return const EmptyState(icon: Icons.search_off_rounded, title: 'Not found', message: 'This complaint does not exist.');
+            return const EmptyState(
+              icon: Icons.search_off_rounded,
+              title: 'Not found',
+              message: 'This complaint does not exist.',
+            );
           }
           return _ComplaintBody(view: v);
         },
@@ -299,30 +347,35 @@ class _ComplaintBody extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
       children: [
-        Row(children: [
-          Icon(complaintIcon(c.category), color: priorityColor(c.priority)),
-          const SizedBox(width: Gap.sm),
-          Expanded(child: Text(c.category, style: t.titleLarge)),
-          StatusPill(label: c.status.label, color: color, background: bg),
-        ]),
+        Row(
+          children: [
+            Icon(complaintIcon(c.category), color: priorityColor(c.priority)),
+            const SizedBox(width: Gap.sm),
+            Expanded(child: Text(c.category, style: t.titleLarge)),
+            StatusPill(label: c.status.label, color: color, background: bg),
+          ],
+        ),
         const SizedBox(height: Gap.md),
         _Progress(status: c.status),
         const SizedBox(height: Gap.lg),
         AppCard(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(c.description, style: t.bodyLarge),
-            const SizedBox(height: Gap.md),
-            Text(
-              [
-                '${c.priority.label} priority',
-                if (view.tenantName != null) view.tenantName!,
-                if (view.roomNumber != null) 'Room ${view.roomNumber}',
-                'Logged ${Dates.short(c.createdAt)}',
-                if (c.resolvedAt != null) 'Resolved ${Dates.short(c.resolvedAt!)}',
-              ].join(' · '),
-              style: t.bodySmall?.copyWith(color: AppColors.textMuted),
-            ),
-          ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(c.description, style: t.bodyLarge),
+              const SizedBox(height: Gap.md),
+              Text(
+                [
+                  '${c.priority.label} priority',
+                  if (view.tenantName != null) view.tenantName!,
+                  if (view.roomNumber != null) 'Room ${view.roomNumber}',
+                  'Logged ${Dates.short(c.createdAt)}',
+                  if (c.resolvedAt != null) 'Resolved ${Dates.short(c.resolvedAt!)}',
+                ].join(' · '),
+                style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+              ),
+            ],
+          ),
         ),
         if (view.images.isNotEmpty) ...[
           const SectionHeader(title: 'Photos'),
@@ -333,7 +386,12 @@ class _ComplaintBody extends ConsumerWidget {
               itemCount: view.images.length,
               separatorBuilder: (_, _) => const SizedBox(width: Gap.sm),
               itemBuilder: (_, i) => InkWell(
-                onTap: () => context.push(Uri(path: '/document', queryParameters: {'path': view.images[i], 'title': 'Photo ${i + 1}'}).toString()),
+                onTap: () => context.push(
+                  Uri(
+                    path: '/document',
+                    queryParameters: {'path': view.images[i], 'title': 'Photo ${i + 1}'},
+                  ).toString(),
+                ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(Radii.md),
                   child: StoredImage(path: view.images[i], width: 104, height: 104),
@@ -345,14 +403,19 @@ class _ComplaintBody extends ConsumerWidget {
         if (c.resolutionNotes != null || view.expense != null) ...[
           const SectionHeader(title: 'Resolution'),
           AppCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (c.resolutionNotes != null) Text(c.resolutionNotes!, style: t.bodyMedium),
-              if (view.expense != null) ...[
-                if (c.resolutionNotes != null) const SizedBox(height: Gap.sm),
-                Text('Repair cost ${Money.format(view.expense!.amountPaise)} · recorded as an expense',
-                    style: t.bodySmall?.copyWith(color: AppColors.textSecondary, fontFeatures: AppTheme.tabular)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (c.resolutionNotes != null) Text(c.resolutionNotes!, style: t.bodyMedium),
+                if (view.expense != null) ...[
+                  if (c.resolutionNotes != null) const SizedBox(height: Gap.sm),
+                  Text(
+                    'Repair cost ${Money.format(view.expense!.amountPaise)} · recorded as an expense',
+                    style: t.bodySmall?.copyWith(color: AppColors.textSecondary, fontFeatures: AppTheme.tabular),
+                  ),
+                ],
               ],
-            ]),
+            ),
           ),
         ],
         const SizedBox(height: Gap.xl),
@@ -364,11 +427,13 @@ class _ComplaintBody extends ConsumerWidget {
               _ => 'Close complaint',
             },
             icon: Icons.arrow_forward_rounded,
-            onPressed: () => next == ComplaintStatus.resolved ? _resolve(context, ref) : runGuarded(
-                  context,
-                  () => ref.read(databaseProvider).opsDao.updateComplaintStatus(c.id, next),
-                  success: 'Marked ${next.label.toLowerCase()}',
-                ),
+            onPressed: () => next == ComplaintStatus.resolved
+                ? _resolve(context, ref)
+                : runGuarded(
+                    context,
+                    () => ref.read(databaseProvider).opsDao.updateComplaintStatus(c.id, next),
+                    success: 'Marked ${next.label.toLowerCase()}',
+                  ),
           ),
       ],
     );
@@ -388,55 +453,62 @@ class _ComplaintBody extends ConsumerWidget {
             padding: EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.xl + MediaQuery.viewInsetsOf(ctx).bottom),
             child: Form(
               key: key,
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text('Mark resolved', style: Theme.of(ctx).textTheme.titleLarge),
-                const SizedBox(height: Gap.lg),
-                TextFormField(
-                  controller: notes,
-                  minLines: 2,
-                  maxLines: 4,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(labelText: 'What was done?'),
-                  validator: (v) => Validators.required(v, 'Resolution', min: 3),
-                ),
-                const SizedBox(height: Gap.lg),
-                MoneyField(
-                  controller: cost,
-                  label: 'Repair cost (optional)',
-                  allowZero: true,
-                  required: false,
-                  helper: 'Saved as a Repairs expense linked to this complaint.',
-                ),
-                const SizedBox(height: Gap.md),
-                SegmentedButton<PaymentMethod>(
-                  segments: const [
-                    ButtonSegment(value: PaymentMethod.cash, label: Text('Cash')),
-                    ButtonSegment(value: PaymentMethod.upi, label: Text('UPI')),
-                    ButtonSegment(value: PaymentMethod.bank, label: Text('Bank')),
-                  ],
-                  selected: {method},
-                  onSelectionChanged: (s) => setState(() => method = s.first),
-                ),
-                const SizedBox(height: Gap.xl),
-                AsyncButton(
-                  label: 'Save',
-                  onPressed: () async {
-                    if (!key.currentState!.validate()) return;
-                    final ok = await runGuarded(
-                      ctx,
-                      () => ref.read(databaseProvider).opsDao.updateComplaintStatus(
-                            view.complaint.id,
-                            ComplaintStatus.resolved,
-                            resolutionNotes: notes.text,
-                            repairCostPaise: MoneyField.read(cost),
-                            repairMethod: method,
-                          ),
-                      success: 'Complaint resolved',
-                    );
-                    if (ok && ctx.mounted) Navigator.pop(ctx);
-                  },
-                ),
-              ]),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Mark resolved', style: Theme.of(ctx).textTheme.titleLarge),
+                  const SizedBox(height: Gap.lg),
+                  TextFormField(
+                    controller: notes,
+                    minLines: 2,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(labelText: 'What was done?'),
+                    validator: (v) => Validators.required(v, 'Resolution', min: 3),
+                  ),
+                  const SizedBox(height: Gap.lg),
+                  MoneyField(
+                    controller: cost,
+                    label: 'Repair cost (optional)',
+                    allowZero: true,
+                    required: false,
+                    helper: 'Saved as a Repairs expense linked to this complaint.',
+                  ),
+                  const SizedBox(height: Gap.md),
+                  SegmentedButton<PaymentMethod>(
+                    segments: const [
+                      ButtonSegment(value: PaymentMethod.cash, label: Text('Cash')),
+                      ButtonSegment(value: PaymentMethod.upi, label: Text('UPI')),
+                      ButtonSegment(value: PaymentMethod.bank, label: Text('Bank')),
+                    ],
+                    selected: {method},
+                    onSelectionChanged: (s) => setState(() => method = s.first),
+                  ),
+                  const SizedBox(height: Gap.xl),
+                  AsyncButton(
+                    label: 'Save',
+                    onPressed: () async {
+                      if (!key.currentState!.validate()) return;
+                      final ok = await runGuarded(
+                        ctx,
+                        () => ref
+                            .read(databaseProvider)
+                            .opsDao
+                            .updateComplaintStatus(
+                              view.complaint.id,
+                              ComplaintStatus.resolved,
+                              resolutionNotes: notes.text,
+                              repairCostPaise: MoneyField.read(cost),
+                              repairMethod: method,
+                            ),
+                        success: 'Complaint resolved',
+                      );
+                      if (ok && ctx.mounted) Navigator.pop(ctx);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -453,25 +525,35 @@ class _Progress extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       label: 'Status ${status.label}, step ${status.index + 1} of 4',
-      child: Row(children: [
-        for (final s in ComplaintStatus.values) ...[
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                height: 4,
-                decoration: BoxDecoration(
-                  color: s.index <= status.index ? AppColors.primary : AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      child: Row(
+        children: [
+          for (final s in ComplaintStatus.values) ...[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: s.index <= status.index ? AppColors.primary : AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    s.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: s.index <= status.index ? AppColors.primary : AppColors.textMuted,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(s.label,
-                  style: TextStyle(fontSize: 11, color: s.index <= status.index ? AppColors.primary : AppColors.textMuted)),
-            ]),
-          ),
-          if (s != ComplaintStatus.closed) const SizedBox(width: 4),
+            ),
+            if (s != ComplaintStatus.closed) const SizedBox(width: 4),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }

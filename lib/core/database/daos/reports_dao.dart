@@ -94,19 +94,25 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
   Future<ReportTable> _summary(DateRange r) async {
     final s = Variable.withDateTime(r.start), e = Variable.withDateTime(r.end);
     final billed = await _scalar(
-        "SELECT SUM(total_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_start >= ? AND period_start < ?", [s, e]);
+      "SELECT SUM(total_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_start >= ? AND period_start < ?",
+      [s, e],
+    );
     Future<int> coll(String method) => _scalar(
-        "SELECT SUM(amount_paise) AS v FROM payments WHERE status = 'confirmed' AND method = ? AND payment_date >= ? AND payment_date < ?",
-        [Variable.withString(method), s, e]);
+      "SELECT SUM(amount_paise) AS v FROM payments WHERE status = 'confirmed' AND method = ? AND payment_date >= ? AND payment_date < ?",
+      [Variable.withString(method), s, e],
+    );
     final cash = await coll('cash');
     final upi = await coll('upi');
     final bank = await coll('bank');
     final deposit = await coll('deposit');
     final outstanding = await _scalar(
-        "SELECT SUM(total_paise - paid_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_start < ? AND total_paise > paid_paise",
-        [e]);
+      "SELECT SUM(total_paise - paid_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_start < ? AND total_paise > paid_paise",
+      [e],
+    );
     final pendingUpi = await _scalar(
-        "SELECT SUM(amount_paise) AS v FROM payments WHERE status = 'pendingVerification' AND payment_date >= ? AND payment_date < ?", [s, e]);
+      "SELECT SUM(amount_paise) AS v FROM payments WHERE status = 'pendingVerification' AND payment_date >= ? AND payment_date < ?",
+      [s, e],
+    );
     final cats = await customSelect(
       'SELECT category, SUM(amount_paise) AS t FROM expenses WHERE is_voided = 0 AND expense_date >= ? AND expense_date < ? GROUP BY category ORDER BY t DESC',
       variables: [s, e],
@@ -123,7 +129,10 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
         ('Expenses', _m(expenseTotal)),
         ('Net cash flow', _m(collected - expenseTotal)),
       ],
-      columns: const [ReportColumn('Line item', flex: 4), ReportColumn('Amount', align: ColumnAlign.right)],
+      columns: const [
+        ReportColumn('Line item', flex: 4),
+        ReportColumn('Amount', align: ColumnAlign.right),
+      ],
       rows: [
         ['Rent billed (invoices for the period)', _m(billed)],
         ['Collected in cash', _m(cash)],
@@ -133,7 +142,8 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
         ['Settled from deposits (not cash)', _m(deposit)],
         ['UPI awaiting verification (not counted)', _m(pendingUpi)],
         ['Outstanding receivables (all unpaid invoices)', _m(outstanding)],
-        for (final c in cats) ['Expense · ${ExpenseCategory.values.byName(c.read<String>('category')).label}', _m(c.read<int>('t'))],
+        for (final c in cats)
+          ['Expense · ${ExpenseCategory.values.byName(c.read<String>('category')).label}', _m(c.read<int>('t'))],
         ['Total expenses', _m(expenseTotal)],
         ['Net cash flow (collected − expenses)', _m(collected - expenseTotal)],
       ],
@@ -147,7 +157,11 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
          WHERE p.payment_date >= ? AND p.payment_date < ? AND p.status <> 'rejected' AND p.method <> 'deposit'
            ${method == null ? '' : 'AND p.method = ?'}
          ORDER BY p.payment_date, p.id''',
-      variables: [Variable.withDateTime(r.start), Variable.withDateTime(r.end), if (method != null) Variable.withString(method.name)],
+      variables: [
+        Variable.withDateTime(r.start),
+        Variable.withDateTime(r.end),
+        if (method != null) Variable.withString(method.name),
+      ],
     ).get();
     var confirmed = 0, pending = 0;
     for (final x in rows) {
@@ -230,10 +244,16 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
   }
 
   Future<ReportTable> _expenses(DateRange r) async {
-    final rows = await (select(expenses)
-          ..where((e) => e.isVoided.equals(false) & e.expenseDate.isBiggerOrEqualValue(r.start) & e.expenseDate.isSmallerThanValue(r.end))
-          ..orderBy([(e) => OrderingTerm.asc(e.expenseDate)]))
-        .get();
+    final rows =
+        await (select(expenses)
+              ..where(
+                (e) =>
+                    e.isVoided.equals(false) &
+                    e.expenseDate.isBiggerOrEqualValue(r.start) &
+                    e.expenseDate.isSmallerThanValue(r.end),
+              )
+              ..orderBy([(e) => OrderingTerm.asc(e.expenseDate)]))
+            .get();
     final byCat = <ExpenseCategory, int>{};
     for (final e in rows) {
       byCat[e.category] = (byCat[e.category] ?? 0) + e.amountPaise;
@@ -254,7 +274,14 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
       ],
       rows: [
         for (final e in rows)
-          [Dates.short(e.expenseDate), e.title, e.category.label, e.vendor ?? '', e.paymentMethod.label, _m(e.amountPaise)],
+          [
+            Dates.short(e.expenseDate),
+            e.title,
+            e.category.label,
+            e.vendor ?? '',
+            e.paymentMethod.label,
+            _m(e.amountPaise),
+          ],
       ],
       footer: ['Category totals: ${sorted.map((c) => '${c.key.label} ${_m(c.value)}').join(' · ')}'],
     );
@@ -434,10 +461,8 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
   }
 
   Future<ReportTable> _deposits() async {
-    final rows = await customSelect(
-      '''SELECT t.*, $_room AS room FROM tenants t WHERE t.security_deposit_paise > 0
-         ORDER BY CASE WHEN t.status IN ('checkedOut','archived') THEN 1 ELSE 0 END, t.full_name''',
-    ).get();
+    final rows = await customSelect('''SELECT t.*, $_room AS room FROM tenants t WHERE t.security_deposit_paise > 0
+         ORDER BY CASE WHEN t.status IN ('checkedOut','archived') THEN 1 ELSE 0 END, t.full_name''').get();
     var held = 0, adjusted = 0, refunded = 0;
     for (final x in rows) {
       final d = x.read<int>('security_deposit_paise');
@@ -482,10 +507,13 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
       final r = DateRange.month(n.year, n.month - i);
       final s = Variable.withDateTime(r.start), e = Variable.withDateTime(r.end);
       final billed = await _scalar(
-          "SELECT SUM(total_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_start >= ? AND period_start < ?", [s, e]);
+        "SELECT SUM(total_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_start >= ? AND period_start < ?",
+        [s, e],
+      );
       final collected = await _scalar(
-          "SELECT SUM(amount_paise) AS v FROM payments WHERE status = 'confirmed' AND method <> 'deposit' AND payment_date >= ? AND payment_date < ?",
-          [s, e]);
+        "SELECT SUM(amount_paise) AS v FROM payments WHERE status = 'confirmed' AND method <> 'deposit' AND payment_date >= ? AND payment_date < ?",
+        [s, e],
+      );
       out.add((r.start, billed, collected));
     }
     return out;

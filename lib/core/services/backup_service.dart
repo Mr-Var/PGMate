@@ -35,25 +35,25 @@ class BackupManifest {
   final int files;
 
   Map<String, Object> toJson() => {
-        'app': 'PG Manager',
-        'format': format,
-        'schemaVersion': schemaVersion,
-        'createdAt': createdAt.toIso8601String(),
-        'pgName': pgName,
-        'tenants': tenants,
-        'payments': payments,
-        'files': files,
-      };
+    'app': 'PG Manager',
+    'format': format,
+    'schemaVersion': schemaVersion,
+    'createdAt': createdAt.toIso8601String(),
+    'pgName': pgName,
+    'tenants': tenants,
+    'payments': payments,
+    'files': files,
+  };
 
   factory BackupManifest.fromJson(Map<String, dynamic> j) => BackupManifest(
-        format: j['format'] as int,
-        schemaVersion: j['schemaVersion'] as int,
-        createdAt: DateTime.parse(j['createdAt'] as String),
-        pgName: j['pgName'] as String? ?? '',
-        tenants: j['tenants'] as int? ?? 0,
-        payments: j['payments'] as int? ?? 0,
-        files: j['files'] as int? ?? 0,
-      );
+    format: j['format'] as int,
+    schemaVersion: j['schemaVersion'] as int,
+    createdAt: DateTime.parse(j['createdAt'] as String),
+    pgName: j['pgName'] as String? ?? '',
+    tenants: j['tenants'] as int? ?? 0,
+    payments: j['payments'] as int? ?? 0,
+    files: j['files'] as int? ?? 0,
+  );
 }
 
 /// A decrypted, verified backup waiting for the owner's final confirmation.
@@ -82,35 +82,43 @@ class BackupService {
   }
 
   static Future<Uint8List> _encrypt(Uint8List plain, String password) => Isolate.run(() async {
-        final rnd = Random.secure();
-        final salt = Uint8List.fromList(List.generate(16, (_) => rnd.nextInt(256)));
-        final key = await Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: _iterations, bits: 256)
-            .deriveKeyFromPassword(password: password, nonce: salt);
-        final algo = AesGcm.with256bits();
-        final nonce = algo.newNonce();
-        final box = await algo.encrypt(plain, secretKey: key, nonce: nonce);
-        return Uint8List.fromList([..._magic, ...salt, ...nonce, ...box.mac.bytes, ...box.cipherText]);
-      });
+    final rnd = Random.secure();
+    final salt = Uint8List.fromList(List.generate(16, (_) => rnd.nextInt(256)));
+    final key = await Pbkdf2(
+      macAlgorithm: Hmac.sha256(),
+      iterations: _iterations,
+      bits: 256,
+    ).deriveKeyFromPassword(password: password, nonce: salt);
+    final algo = AesGcm.with256bits();
+    final nonce = algo.newNonce();
+    final box = await algo.encrypt(plain, secretKey: key, nonce: nonce);
+    return Uint8List.fromList([..._magic, ...salt, ...nonce, ...box.mac.bytes, ...box.cipherText]);
+  });
 
   static Future<Uint8List> _decrypt(Uint8List data, String password) => Isolate.run(() async {
-        if (data.length < 5 + 16 + 12 + 16 || !_listEq(data.sublist(0, 5), _magic)) {
-          throw RuleException('This is not a PG Manager backup file.');
-        }
-        var o = 5;
-        final salt = data.sublist(o, o += 16);
-        final nonce = data.sublist(o, o += 12);
-        final mac = data.sublist(o, o += 16);
-        final cipher = data.sublist(o);
-        final key = await Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: _iterations, bits: 256)
-            .deriveKeyFromPassword(password: password, nonce: salt);
-        try {
-          final plain = await AesGcm.with256bits()
-              .decrypt(SecretBox(cipher, nonce: nonce, mac: Mac(mac)), secretKey: key);
-          return Uint8List.fromList(plain);
-        } on SecretBoxAuthenticationError {
-          throw RuleException('Wrong password, or the backup file is damaged.');
-        }
-      });
+    if (data.length < 5 + 16 + 12 + 16 || !_listEq(data.sublist(0, 5), _magic)) {
+      throw RuleException('This is not a PG Manager backup file.');
+    }
+    var o = 5;
+    final salt = data.sublist(o, o += 16);
+    final nonce = data.sublist(o, o += 12);
+    final mac = data.sublist(o, o += 16);
+    final cipher = data.sublist(o);
+    final key = await Pbkdf2(
+      macAlgorithm: Hmac.sha256(),
+      iterations: _iterations,
+      bits: 256,
+    ).deriveKeyFromPassword(password: password, nonce: salt);
+    try {
+      final plain = await AesGcm.with256bits().decrypt(
+        SecretBox(cipher, nonce: nonce, mac: Mac(mac)),
+        secretKey: key,
+      );
+      return Uint8List.fromList(plain);
+    } on SecretBoxAuthenticationError {
+      throw RuleException('Wrong password, or the backup file is damaged.');
+    }
+  });
 
   static bool _listEq(List<int> a, List<int> b) {
     if (a.length != b.length) return false;

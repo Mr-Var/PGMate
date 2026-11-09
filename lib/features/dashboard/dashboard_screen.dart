@@ -175,13 +175,21 @@ class _CollectionHero extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text('Rent collected',
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: t.labelLarge?.copyWith(color: onDim)),
+                  child: Text(
+                    'Rent collected',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.labelLarge?.copyWith(color: onDim),
+                  ),
                 ),
                 const SizedBox(width: Gap.sm),
                 Flexible(
-                  child: Text(s.range.label,
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: t.labelMedium?.copyWith(color: onDim)),
+                  child: Text(
+                    s.range.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.labelMedium?.copyWith(color: onDim),
+                  ),
                 ),
               ],
             ),
@@ -553,8 +561,12 @@ class _OccupancyCard extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text('occupied',
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+                  child: Text(
+                    'occupied',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                  ),
                 ),
               ),
               Column(

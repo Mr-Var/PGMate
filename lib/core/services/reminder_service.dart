@@ -51,14 +51,16 @@ class ReminderService {
     await _plugin.cancelAll();
     if (!enabled) return 0;
     final today = Dates.today();
-    final rows = await db.customSelect(
-      '''SELECT i.id, i.due_date, i.total_paise - i.paid_paise AS bal, t.full_name
+    final rows = await db
+        .customSelect(
+          '''SELECT i.id, i.due_date, i.total_paise - i.paid_paise AS bal, t.full_name
          FROM rent_invoices i JOIN tenants t ON t.id = i.tenant_id
          WHERE i.status <> 'cancelled' AND i.total_paise > i.paid_paise
            AND i.due_date >= ? AND i.due_date < ?
          ORDER BY i.due_date LIMIT 60''',
-      variables: [Variable.withDateTime(today), Variable.withDateTime(today.add(const Duration(days: 31)))],
-    ).get();
+          variables: [Variable.withDateTime(today), Variable.withDateTime(today.add(const Duration(days: 31)))],
+        )
+        .get();
     var n = 0;
     for (final r in rows) {
       final due = DateTime.fromMillisecondsSinceEpoch(r.read<int>('due_date') * 1000);

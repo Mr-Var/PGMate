@@ -19,9 +19,7 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 
 final secureStoreProvider = Provider<SecureStore>((ref) => const PlatformSecureStore());
 
-final authServiceProvider = Provider<AuthService>(
-  (ref) => AuthService(store: ref.watch(secureStoreProvider)),
-);
+final authServiceProvider = Provider<AuthService>((ref) => AuthService(store: ref.watch(secureStoreProvider)));
 
 final fileStoreProvider = Provider<FileStore>((ref) => FileStore());
 
@@ -31,9 +29,7 @@ final backupServiceProvider = Provider<BackupService>((ref) => BackupService(fil
 
 final reminderServiceProvider = Provider<ReminderService>((ref) => ReminderService());
 
-final pgProfileProvider = StreamProvider<PgProfile?>(
-  (ref) => ref.watch(databaseProvider).settingsDao.watchProfile(),
-);
+final pgProfileProvider = StreamProvider<PgProfile?>((ref) => ref.watch(databaseProvider).settingsDao.watchProfile());
 
 /// Whether rent reminders are on (stored in app settings, default on).
 final remindersEnabledProvider = StreamProvider<bool>(

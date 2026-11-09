@@ -32,6 +32,7 @@ class Rooms extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get roomNumber => text().withLength(min: 1, max: 20).unique()();
   IntColumn get floor => integer()();
+
   /// Default monthly rent per bed in this room, in paise.
   IntColumn get rentPaise => integer().check(rentPaise.isBiggerOrEqualValue(0))();
   TextColumn get notes => text().nullable()();
@@ -53,8 +54,8 @@ class Beds extends Table {
 
   @override
   List<Set<Column>> get uniqueKeys => [
-        {roomId, label},
-      ];
+    {roomId, label},
+  ];
 }
 
 @DataClassName('Tenant')
@@ -67,6 +68,7 @@ class Tenants extends Table {
   TextColumn get phone => text().withLength(min: 10, max: 15)();
   TextColumn get email => text().nullable()();
   TextColumn get gender => textEnum<Gender>()();
+
   /// Path relative to the app's private documents directory.
   TextColumn get photoPath => text().nullable()();
   TextColumn get idProofType => text().nullable()();
@@ -79,15 +81,16 @@ class Tenants extends Table {
   IntColumn get monthlyRentPaise => integer().check(monthlyRentPaise.isBiggerOrEqualValue(0))();
   IntColumn get securityDepositPaise =>
       integer().withDefault(const Constant(0)).check(securityDepositPaise.isBiggerOrEqualValue(0))();
-  IntColumn get advancePaise =>
-      integer().withDefault(const Constant(0)).check(advancePaise.isBiggerOrEqualValue(0))();
+  IntColumn get advancePaise => integer().withDefault(const Constant(0)).check(advancePaise.isBiggerOrEqualValue(0))();
   IntColumn get rentDueDay => integer().check(rentDueDay.isBetweenValues(1, 28))();
   TextColumn get status => textEnum<TenantStatus>().withDefault(Constant(TenantStatus.newTenant.name))();
   DateTimeColumn get noticeDate => dateTime().nullable()();
   DateTimeColumn get expectedCheckoutDate => dateTime().nullable()();
   DateTimeColumn get checkoutDate => dateTime().nullable()();
+
   /// Part of the deposit used to settle dues at checkout.
   IntColumn get depositAdjustedPaise => integer().withDefault(const Constant(0))();
+
   /// Part of the deposit returned to the tenant at checkout.
   IntColumn get depositRefundedPaise => integer().withDefault(const Constant(0))();
   TextColumn get checkoutNotes => text().nullable()();

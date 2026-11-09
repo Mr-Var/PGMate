@@ -89,11 +89,7 @@ class EmptyState extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: Gap.xl),
-              FilledButton.icon(
-                onPressed: onAction,
-                icon: const Icon(Icons.add_rounded),
-                label: Text(actionLabel!),
-              ),
+              FilledButton.icon(onPressed: onAction, icon: const Icon(Icons.add_rounded), label: Text(actionLabel!)),
             ],
           ],
         ),
@@ -154,14 +150,19 @@ class StatusPill extends StatelessWidget {
 void showAppSnack(BuildContext context, String message, {bool error = false}) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(
-      content: Row(
-        children: [
-          Icon(error ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
-              color: error ? const Color(0xFFFFB4AB) : const Color(0xFFA8E6C4), size: 20),
-          const SizedBox(width: Gap.md),
-          Expanded(child: Text(message)),
-        ],
+    ..showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              error ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+              color: error ? const Color(0xFFFFB4AB) : const Color(0xFFA8E6C4),
+              size: 20,
+            ),
+            const SizedBox(width: Gap.md),
+            Expanded(child: Text(message)),
+          ],
+        ),
       ),
-    ));
+    );
 }

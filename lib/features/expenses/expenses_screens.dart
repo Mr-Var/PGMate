@@ -19,16 +19,16 @@ import '../../shared/widgets/validators.dart';
 import '../payments/payment_widgets.dart';
 
 IconData expenseIcon(ExpenseCategory c) => switch (c) {
-      ExpenseCategory.electricity => Icons.bolt_rounded,
-      ExpenseCategory.water => Icons.water_drop_outlined,
-      ExpenseCategory.food => Icons.restaurant_outlined,
-      ExpenseCategory.staffSalaries => Icons.badge_outlined,
-      ExpenseCategory.internet => Icons.wifi_rounded,
-      ExpenseCategory.maintenance => Icons.build_outlined,
-      ExpenseCategory.cleaning => Icons.cleaning_services_outlined,
-      ExpenseCategory.repairs => Icons.handyman_outlined,
-      ExpenseCategory.miscellaneous => Icons.more_horiz_rounded,
-    };
+  ExpenseCategory.electricity => Icons.bolt_rounded,
+  ExpenseCategory.water => Icons.water_drop_outlined,
+  ExpenseCategory.food => Icons.restaurant_outlined,
+  ExpenseCategory.staffSalaries => Icons.badge_outlined,
+  ExpenseCategory.internet => Icons.wifi_rounded,
+  ExpenseCategory.maintenance => Icons.build_outlined,
+  ExpenseCategory.cleaning => Icons.cleaning_services_outlined,
+  ExpenseCategory.repairs => Icons.handyman_outlined,
+  ExpenseCategory.miscellaneous => Icons.more_horiz_rounded,
+};
 
 class _Month extends Notifier<DateTime> {
   @override
@@ -62,6 +62,7 @@ class ExpensesScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Expenses')),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: () => context.push('/more/expenses/new'),
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add expense'),
@@ -69,42 +70,68 @@ class ExpensesScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, 96),
         children: [
-          Row(children: [
-            IconButton(tooltip: 'Previous month', onPressed: () => ref.read(_monthProvider.notifier).shift(-1), icon: const Icon(Icons.chevron_left_rounded)),
-            Expanded(child: Text(Dates.monthYear(m), textAlign: TextAlign.center, style: t.titleMedium)),
-            IconButton(tooltip: 'Next month', onPressed: () => ref.read(_monthProvider.notifier).shift(1), icon: const Icon(Icons.chevron_right_rounded)),
-          ]),
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Previous month',
+                onPressed: () => ref.read(_monthProvider.notifier).shift(-1),
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Expanded(
+                child: Text(Dates.monthYear(m), textAlign: TextAlign.center, style: t.titleMedium),
+              ),
+              IconButton(
+                tooltip: 'Next month',
+                onPressed: () => ref.read(_monthProvider.notifier).shift(1),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
           AppCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Spent in ${Dates.monthYear(m)}', style: t.labelLarge?.copyWith(color: AppColors.textSecondary)),
-              const SizedBox(height: 4),
-              Text(Money.format(total), style: t.headlineMedium?.copyWith(fontFeatures: AppTheme.tabular)),
-              if (totals.isNotEmpty) ...[
-                const SizedBox(height: Gap.lg),
-                for (final c in totals.take(6))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Gap.md),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Icon(expenseIcon(c.category), size: 16, color: AppColors.textSecondary),
-                        const SizedBox(width: 6),
-                        Expanded(child: Text(c.category.label, style: t.bodySmall)),
-                        Text(Money.format(c.totalPaise), style: t.bodySmall?.copyWith(fontFeatures: AppTheme.tabular, fontWeight: FontWeight.w600)),
-                      ]),
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: total == 0 ? 0 : c.totalPaise / total,
-                          minHeight: 6,
-                          backgroundColor: AppColors.surfaceMuted,
-                          valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-                        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Spent in ${Dates.monthYear(m)}', style: t.labelLarge?.copyWith(color: AppColors.textSecondary)),
+                const SizedBox(height: 4),
+                Text(Money.format(total), style: t.headlineMedium?.copyWith(fontFeatures: AppTheme.tabular)),
+                if (totals.isNotEmpty) ...[
+                  const SizedBox(height: Gap.lg),
+                  for (final c in totals.take(6))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Gap.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(expenseIcon(c.category), size: 16, color: AppColors.textSecondary),
+                              const SizedBox(width: 6),
+                              Expanded(child: Text(c.category.label, style: t.bodySmall)),
+                              Text(
+                                Money.format(c.totalPaise),
+                                style: t.bodySmall?.copyWith(
+                                  fontFeatures: AppTheme.tabular,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              value: total == 0 ? 0 : c.totalPaise / total,
+                              minHeight: 6,
+                              backgroundColor: AppColors.surfaceMuted,
+                              valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                            ),
+                          ),
+                        ],
                       ),
-                    ]),
-                  ),
+                    ),
+                ],
               ],
-            ]),
+            ),
           ),
           const SectionHeader(title: 'Entries'),
           list.when(
@@ -112,7 +139,9 @@ class ExpensesScreen extends ConsumerWidget {
             loading: () => const SkeletonBox(height: 200, radius: Radii.lg),
             error: (e, _) => ErrorState(error: e),
             data: (l) => l.isEmpty
-                ? const AppCard(child: Text('No expenses recorded this month.', style: TextStyle(color: AppColors.textSecondary)))
+                ? const AppCard(
+                    child: Text('No expenses recorded this month.', style: TextStyle(color: AppColors.textSecondary)),
+                  )
                 : TileGroup(indent: 68, children: [for (final e in l) _ExpenseTile(expense: e)]),
           ),
         ],
@@ -144,14 +173,23 @@ class _ExpenseTile extends ConsumerWidget {
         overflow: TextOverflow.ellipsis,
         style: t.bodySmall?.copyWith(color: AppColors.textMuted),
       ),
-      trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Text(Money.format(e.amountPaise),
-            style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular, color: e.isVoided ? AppColors.textMuted : null)),
-        if (e.isVoided)
-          const StatusPill(label: 'Voided', color: AppColors.textSecondary, background: AppColors.neutralSoft)
-        else if (e.billPath != null)
-          const Icon(Icons.attach_file_rounded, size: 16, color: AppColors.textMuted),
-      ]),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            Money.format(e.amountPaise),
+            style: t.titleSmall?.copyWith(
+              fontFeatures: AppTheme.tabular,
+              color: e.isVoided ? AppColors.textMuted : null,
+            ),
+          ),
+          if (e.isVoided)
+            const StatusPill(label: 'Voided', color: AppColors.textSecondary, background: AppColors.neutralSoft)
+          else if (e.billPath != null)
+            const Icon(Icons.attach_file_rounded, size: 16, color: AppColors.textMuted),
+        ],
+      ),
     );
   }
 
@@ -164,40 +202,50 @@ class _ExpenseTile extends ConsumerWidget {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.xl),
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(e.title, style: t.titleLarge),
-              const SizedBox(height: Gap.xs),
-              Text(
-                '${Money.format(e.amountPaise)} · ${e.category.label} · ${e.paymentMethod.label} · ${Dates.short(e.expenseDate)}'
-                '${e.vendor == null ? '' : '\nVendor: ${e.vendor}'}${e.notes == null ? '' : '\n${e.notes}'}'
-                '${e.voidReason == null ? '' : '\nVoided: ${e.voidReason}'}',
-                style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: Gap.xl),
-              if (e.billPath != null) ...[
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    context.push(Uri(path: '/document', queryParameters: {'path': e.billPath!, 'title': e.title}).toString());
-                  },
-                  icon: const Icon(Icons.receipt_outlined),
-                  label: const Text('View bill'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(e.title, style: t.titleLarge),
+                const SizedBox(height: Gap.xs),
+                Text(
+                  '${Money.format(e.amountPaise)} · ${e.category.label} · ${e.paymentMethod.label} · ${Dates.short(e.expenseDate)}'
+                  '${e.vendor == null ? '' : '\nVendor: ${e.vendor}'}${e.notes == null ? '' : '\n${e.notes}'}'
+                  '${e.voidReason == null ? '' : '\nVoided: ${e.voidReason}'}',
+                  style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
                 ),
-                const SizedBox(height: Gap.md),
+                const SizedBox(height: Gap.xl),
+                if (e.billPath != null) ...[
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      context.push(
+                        Uri(path: '/document', queryParameters: {'path': e.billPath!, 'title': e.title}).toString(),
+                      );
+                    },
+                    icon: const Icon(Icons.receipt_outlined),
+                    label: const Text('View bill'),
+                  ),
+                  const SizedBox(height: Gap.md),
+                ],
+                if (!e.isVoided)
+                  AsyncButton(
+                    label: 'Void this expense',
+                    outlined: true,
+                    danger: true,
+                    onPressed: () async {
+                      final reason = await askReason(ctx, title: 'Void expense?', hint: 'Reason', confirmLabel: 'Void');
+                      if (reason == null || !ctx.mounted) return;
+                      final ok = await runGuarded(
+                        ctx,
+                        () => ref.read(databaseProvider).opsDao.voidExpense(e.id, reason),
+                        success: 'Expense voided',
+                      );
+                      if (ok && ctx.mounted) Navigator.pop(ctx);
+                    },
+                  ),
               ],
-              if (!e.isVoided)
-                AsyncButton(
-                  label: 'Void this expense',
-                  outlined: true,
-                  danger: true,
-                  onPressed: () async {
-                    final reason = await askReason(ctx, title: 'Void expense?', hint: 'Reason', confirmLabel: 'Void');
-                    if (reason == null || !ctx.mounted) return;
-                    final ok = await runGuarded(ctx, () => ref.read(databaseProvider).opsDao.voidExpense(e.id, reason), success: 'Expense voided');
-                    if (ok && ctx.mounted) Navigator.pop(ctx);
-                  },
-                ),
-            ]),
+            ),
           ),
         );
       },
@@ -233,11 +281,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final path = _bill == null ? null : await ref.read(fileStoreProvider).save(_bill!.$1, folder: 'bills', extension: _bill!.$2);
+    final path = _bill == null
+        ? null
+        : await ref.read(fileStoreProvider).save(_bill!.$1, folder: 'bills', extension: _bill!.$2);
     if (!mounted) return;
     final ok = await runGuarded(
       context,
-      () => ref.read(databaseProvider).opsDao.addExpense(
+      () => ref
+          .read(databaseProvider)
+          .opsDao
+          .addExpense(
             title: _title.text,
             category: _category!,
             amountPaise: MoneyField.read(_amount),
@@ -261,63 +314,83 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
           children: [
-            FormSection(title: 'Category', children: [
-              Wrap(spacing: Gap.sm, runSpacing: Gap.sm, children: [
-                for (final c in ExpenseCategory.values)
-                  ChoiceChip(
-                    avatar: Icon(expenseIcon(c), size: 18),
-                    label: Text(c.label),
-                    selected: _category == c,
-                    showCheckmark: false,
-                    onSelected: (_) => setState(() {
-                      _category = c;
-                      if (_title.text.trim().isEmpty) _title.text = c.label;
-                    }),
+            FormSection(
+              title: 'Category',
+              children: [
+                Wrap(
+                  spacing: Gap.sm,
+                  runSpacing: Gap.sm,
+                  children: [
+                    for (final c in ExpenseCategory.values)
+                      ChoiceChip(
+                        avatar: Icon(expenseIcon(c), size: 18),
+                        label: Text(c.label),
+                        selected: _category == c,
+                        showCheckmark: false,
+                        onSelected: (_) => setState(() {
+                          _category = c;
+                          if (_title.text.trim().isEmpty) _title.text = c.label;
+                        }),
+                      ),
+                  ],
+                ),
+                FormField<ExpenseCategory>(
+                  validator: (_) => _category == null ? 'Choose a category' : null,
+                  builder: (s) => s.hasError
+                      ? Text(s.errorText!, style: const TextStyle(color: AppColors.danger, fontSize: 12))
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+            FormSection(
+              title: 'Details',
+              children: [
+                TextFormField(
+                  controller: _title,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(labelText: 'Title', hintText: 'e.g. November electricity bill'),
+                  validator: (v) => Validators.required(v, 'Title', max: 120),
+                ),
+                MoneyField(controller: _amount, label: 'Amount'),
+                DateField(
+                  label: 'Date',
+                  value: _date,
+                  last: Dates.today(),
+                  onChanged: (d) => setState(() => _date = d),
+                ),
+                SegmentedButton<PaymentMethod>(
+                  segments: const [
+                    ButtonSegment(value: PaymentMethod.cash, label: Text('Cash')),
+                    ButtonSegment(value: PaymentMethod.upi, label: Text('UPI')),
+                    ButtonSegment(value: PaymentMethod.bank, label: Text('Bank')),
+                  ],
+                  selected: {_method},
+                  onSelectionChanged: (s) => setState(() => _method = s.first),
+                ),
+                TextFormField(
+                  controller: _vendor,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(labelText: 'Vendor (optional)', hintText: 'e.g. BESCOM'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final d = await pickDocument(context, title: 'Bill');
+                    if (d != null) setState(() => _bill = d);
+                  },
+                  icon: Icon(
+                    _bill == null ? Icons.attach_file_rounded : Icons.check_circle_rounded,
+                    color: _bill == null ? null : AppColors.success,
                   ),
-              ]),
-              FormField<ExpenseCategory>(
-                validator: (_) => _category == null ? 'Choose a category' : null,
-                builder: (s) => s.hasError ? Text(s.errorText!, style: const TextStyle(color: AppColors.danger, fontSize: 12)) : const SizedBox.shrink(),
-              ),
-            ]),
-            FormSection(title: 'Details', children: [
-              TextFormField(
-                controller: _title,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(labelText: 'Title', hintText: 'e.g. November electricity bill'),
-                validator: (v) => Validators.required(v, 'Title', max: 120),
-              ),
-              MoneyField(controller: _amount, label: 'Amount'),
-              DateField(label: 'Date', value: _date, last: Dates.today(), onChanged: (d) => setState(() => _date = d)),
-              SegmentedButton<PaymentMethod>(
-                segments: const [
-                  ButtonSegment(value: PaymentMethod.cash, label: Text('Cash')),
-                  ButtonSegment(value: PaymentMethod.upi, label: Text('UPI')),
-                  ButtonSegment(value: PaymentMethod.bank, label: Text('Bank')),
-                ],
-                selected: {_method},
-                onSelectionChanged: (s) => setState(() => _method = s.first),
-              ),
-              TextFormField(
-                controller: _vendor,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Vendor (optional)', hintText: 'e.g. BESCOM'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final d = await pickDocument(context, title: 'Bill');
-                  if (d != null) setState(() => _bill = d);
-                },
-                icon: Icon(_bill == null ? Icons.attach_file_rounded : Icons.check_circle_rounded, color: _bill == null ? null : AppColors.success),
-                label: Text(_bill == null ? 'Attach bill (photo or PDF)' : 'Bill attached · tap to change'),
-              ),
-              TextFormField(
-                controller: _notes,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Notes (optional)'),
-              ),
-            ]),
+                  label: Text(_bill == null ? 'Attach bill (photo or PDF)' : 'Bill attached · tap to change'),
+                ),
+                TextFormField(
+                  controller: _notes,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                ),
+              ],
+            ),
             AsyncButton(label: 'Save expense', onPressed: _save),
           ],
         ),

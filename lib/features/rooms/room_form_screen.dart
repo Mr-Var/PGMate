@@ -26,7 +26,10 @@ class RoomFormScreen extends ConsumerWidget {
     final rooms = ref.watch(roomsProvider);
     return rooms.when(
       loading: () => const Scaffold(body: LoadingList()),
-      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorState(error: e)),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(),
+        body: ErrorState(error: e),
+      ),
       data: (list) {
         final match = list.where((r) => r.room.id == roomId).firstOrNull;
         if (match == null) {
@@ -92,7 +95,13 @@ class _RoomFormState extends ConsumerState<_RoomForm> {
           notes: _notes.text,
         );
       } else {
-        await dao.addRoom(roomNumber: _number.text, floor: _floor, rentPaise: rent, bedCount: _beds, notes: _notes.text);
+        await dao.addRoom(
+          roomNumber: _number.text,
+          floor: _floor,
+          rentPaise: rent,
+          bedCount: _beds,
+          notes: _notes.text,
+        );
       }
       if (!mounted) return;
       showAppSnack(context, _isEdit ? 'Room ${_number.text.trim()} updated' : 'Room ${_number.text.trim()} added');
@@ -178,12 +187,10 @@ class _RoomFormState extends ConsumerState<_RoomForm> {
             padding: const EdgeInsets.all(Gap.lg),
             children: [
               DropdownButtonFormField<int>(
-            isExpanded: true,
+                isExpanded: true,
                 initialValue: _floor,
                 decoration: const InputDecoration(labelText: 'Floor', prefixIcon: Icon(Icons.layers_outlined)),
-                items: [
-                  for (var f = -1; f <= 15; f++) DropdownMenuItem(value: f, child: Text(Dates.floorLabel(f))),
-                ],
+                items: [for (var f = -1; f <= 15; f++) DropdownMenuItem(value: f, child: Text(Dates.floorLabel(f)))],
                 onChanged: (v) => setState(() => _floor = v ?? _floor),
               ),
               const SizedBox(height: Gap.lg),

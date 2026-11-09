@@ -35,34 +35,60 @@ Future<Map<String, int>> seed(AppDatabase db, AuthService auth) async {
   await db.roomsDao.addRoom(roomNumber: '001', floor: 0, rentPaise: 750000, bedCount: 2);
   final beds = (await db.select(db.beds).get()).map((b) => b.id).toList();
   Future<int> tenant(String name, String phone, int bed, {int deposit = 1000000}) => db.tenantsDao.createTenant(
-        TenantInput(
-          fullName: name,
-          phone: phone,
-          gender: Gender.male,
-          joiningDate: DateTime(now.year, now.month - 2, 10),
-          monthlyRentPaise: 850000,
-          rentDueDay: 5,
-          securityDepositPaise: deposit,
-          emergencyContactName: 'Suresh (father)',
-          emergencyContactPhone: '9876500000',
-          idProofType: 'Aadhaar',
-        ),
-        bedId: bed,
-      );
+    TenantInput(
+      fullName: name,
+      phone: phone,
+      gender: Gender.male,
+      joiningDate: DateTime(now.year, now.month - 2, 10),
+      monthlyRentPaise: 850000,
+      rentDueDay: 5,
+      securityDepositPaise: deposit,
+      emergencyContactName: 'Suresh (father)',
+      emergencyContactPhone: '9876500000',
+      idProofType: 'Aadhaar',
+    ),
+    bedId: bed,
+  );
   final a = await tenant('Arjun Mehta', '9876500001', beds[0]);
   final b = await tenant('Bala Subramanian', '9876500002', beds[1]);
   await db.billingDao.generateMonthlyInvoices(now.year, now.month - 1);
   await db.billingDao.generateMonthlyInvoices(now.year, now.month);
   final cash = await db.billingDao.recordPayment(
-      PaymentInput(tenantId: a, amountPaise: 850000, method: PaymentMethod.cash, date: DateTime(now.year, now.month, 1)));
-  await db.billingDao.recordPayment(PaymentInput(
-      tenantId: b, amountPaise: 400000, method: PaymentMethod.upi, date: DateTime(now.year, now.month, 1), upiReference: '612345678901'));
-  await db.tenantsDao.giveNotice(b, DateTime(now.year, now.month, 1), DateTime(now.year, now.month, 1).add(const Duration(days: 20)));
+    PaymentInput(tenantId: a, amountPaise: 850000, method: PaymentMethod.cash, date: DateTime(now.year, now.month, 1)),
+  );
+  await db.billingDao.recordPayment(
+    PaymentInput(
+      tenantId: b,
+      amountPaise: 400000,
+      method: PaymentMethod.upi,
+      date: DateTime(now.year, now.month, 1),
+      upiReference: '612345678901',
+    ),
+  );
+  await db.tenantsDao.giveNotice(
+    b,
+    DateTime(now.year, now.month, 1),
+    DateTime(now.year, now.month, 1).add(const Duration(days: 20)),
+  );
   await db.opsDao.addExpense(
-      title: 'Electricity bill', category: ExpenseCategory.electricity, amountPaise: 1240000, date: DateTime(now.year, now.month, 2), method: PaymentMethod.upi);
+    title: 'Electricity bill',
+    category: ExpenseCategory.electricity,
+    amountPaise: 1240000,
+    date: DateTime(now.year, now.month, 2),
+    method: PaymentMethod.upi,
+  );
   final complaint = await db.opsDao.addComplaint(
-      tenantId: a, category: 'Plumbing', description: 'Bathroom tap leaking since morning', priority: ComplaintPriority.high);
-  final notice = await db.opsDao.saveNotice(title: 'Water supply off Sunday', body: 'From 10 AM to 2 PM.', category: 'Water / power cut', publishDate: now);
+    tenantId: a,
+    category: 'Plumbing',
+    description: 'Bathroom tap leaking since morning',
+    priority: ComplaintPriority.high,
+  );
+  final notice = await db.opsDao.saveNotice(
+    title: 'Water supply off Sunday',
+    body: 'From 10 AM to 2 PM.',
+    category: 'Water / power cut',
+    publishDate: now,
+  );
   await db.opsDao.saveMenu(now, breakfast: 'Idli, sambar', lunch: 'Rice, dal, sabzi', dinner: 'Chapati, paneer');
   final invoice = (await db.select(db.rentInvoices).get()).first.id;
   return {'tenant': a, 'tenant2': b, 'payment': cash, 'invoice': invoice, 'complaint': complaint, 'notice': notice};
@@ -87,13 +113,12 @@ void main() {
     final auth = AuthService(store: MemorySecureStore(), iterations: 1000, hashInIsolate: false);
     final ids = (await tester.runAsync(() => seed(db, auth)))!;
 
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        databaseProvider.overrideWithValue(db),
-        authServiceProvider.overrideWithValue(auth),
-      ],
-      child: const PgManagerApp(),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db), authServiceProvider.overrideWithValue(auth)],
+        child: const PgManagerApp(),
+      ),
+    );
     await settle(tester);
     for (final d in '2580'.split('')) {
       await tester.tap(find.text(d).last);

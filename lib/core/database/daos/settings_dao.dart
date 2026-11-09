@@ -10,11 +10,9 @@ part 'settings_dao.g.dart';
 class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin {
   SettingsDao(super.db);
 
-  Stream<PgProfile?> watchProfile() =>
-      (select(pgProfiles)..where((p) => p.id.equals(1))).watchSingleOrNull();
+  Stream<PgProfile?> watchProfile() => (select(pgProfiles)..where((p) => p.id.equals(1))).watchSingleOrNull();
 
-  Future<PgProfile?> getProfile() =>
-      (select(pgProfiles)..where((p) => p.id.equals(1))).getSingleOrNull();
+  Future<PgProfile?> getProfile() => (select(pgProfiles)..where((p) => p.id.equals(1))).getSingleOrNull();
 
   Future<void> saveProfile({
     required String name,
@@ -26,17 +24,19 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   }) {
     return transaction(() async {
       final existing = await getProfile();
-      await into(pgProfiles).insertOnConflictUpdate(PgProfilesCompanion(
-        id: const Value(1),
-        name: Value(name),
-        address: Value(address),
-        ownerName: Value(ownerName),
-        ownerPhone: Value(ownerPhone),
-        upiId: Value(upiId),
-        defaultRentDueDay: defaultRentDueDay == null ? const Value.absent() : Value(defaultRentDueDay),
-        createdAt: existing == null ? Value(DateTime.now()) : Value(existing.createdAt),
-        updatedAt: Value(DateTime.now()),
-      ));
+      await into(pgProfiles).insertOnConflictUpdate(
+        PgProfilesCompanion(
+          id: const Value(1),
+          name: Value(name),
+          address: Value(address),
+          ownerName: Value(ownerName),
+          ownerPhone: Value(ownerPhone),
+          upiId: Value(upiId),
+          defaultRentDueDay: defaultRentDueDay == null ? const Value.absent() : Value(defaultRentDueDay),
+          createdAt: existing == null ? Value(DateTime.now()) : Value(existing.createdAt),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
       await log('pg_profile', 1, existing == null ? 'create' : 'update');
     });
   }
@@ -49,9 +49,8 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
   Stream<String?> watchSetting(String key) =>
       (select(appSettings)..where((s) => s.key.equals(key))).watchSingleOrNull().map((r) => r?.value);
 
-  Future<void> setSetting(String key, String value) => into(appSettings).insertOnConflictUpdate(
-        AppSettingsCompanion.insert(key: key, value: value, updatedAt: Value(DateTime.now())),
-      );
+  Future<void> setSetting(String key, String value) => into(appSettings)
+      .insertOnConflictUpdate(AppSettingsCompanion.insert(key: key, value: value, updatedAt: Value(DateTime.now())));
 
   /// Next value of a named, gap-free counter (e.g. receipt numbers per year).
   /// Must be called inside the caller's transaction.
@@ -63,11 +62,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin 
     return next;
   }
 
-  Future<void> log(String entity, int? entityId, String action, [String? details]) =>
-      into(auditLogs).insert(AuditLogsCompanion.insert(
-        entity: entity,
-        entityId: Value(entityId),
-        action: action,
-        details: Value(details),
-      ));
+  Future<void> log(String entity, int? entityId, String action, [String? details]) => into(auditLogs).insert(
+    AuditLogsCompanion.insert(entity: entity, entityId: Value(entityId), action: action, details: Value(details)),
+  );
 }

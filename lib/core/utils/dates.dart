@@ -7,8 +7,7 @@ class DateRange {
   final DateTime start;
   final DateTime end;
 
-  factory DateRange.month(int year, int month) =>
-      DateRange(DateTime(year, month), DateTime(year, month + 1));
+  factory DateRange.month(int year, int month) => DateRange(DateTime(year, month), DateTime(year, month + 1));
 
   factory DateRange.currentMonth([DateTime? now]) {
     final n = now ?? DateTime.now();
@@ -18,8 +17,7 @@ class DateRange {
   /// Inclusive end date for display purposes.
   DateTime get lastDay => end.subtract(const Duration(days: 1));
 
-  bool get isSingleMonth =>
-      start.day == 1 && end == DateTime(start.year, start.month + 1);
+  bool get isSingleMonth => start.day == 1 && end == DateTime(start.year, start.month + 1);
 
   String get label {
     if (isSingleMonth) return DateFormat('MMMM yyyy').format(start);
@@ -27,8 +25,7 @@ class DateRange {
   }
 
   @override
-  bool operator ==(Object other) =>
-      other is DateRange && other.start == start && other.end == end;
+  bool operator ==(Object other) => other is DateRange && other.start == start && other.end == end;
 
   @override
   int get hashCode => Object.hash(start, end);

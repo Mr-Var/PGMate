@@ -68,8 +68,9 @@ class AuthService {
   /// because background isolates do not advance inside fake test time.
   final bool hashInIsolate;
 
-  Future<String> _hash(String pin, String salt, int iters) =>
-      hashInIsolate ? PinHasher.hash(pin, salt, iterations: iters) : Future.value(PinHasher.hashSync(pin, salt, iterations: iters));
+  Future<String> _hash(String pin, String salt, int iters) => hashInIsolate
+      ? PinHasher.hash(pin, salt, iterations: iters)
+      : Future.value(PinHasher.hashSync(pin, salt, iterations: iters));
 
   static const pinLength = 4;
   static const maxAttempts = 5;

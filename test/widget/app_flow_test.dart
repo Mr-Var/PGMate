@@ -37,13 +37,13 @@ void main() {
   });
 
   Widget app() => ProviderScope(
-        overrides: [
-          databaseProvider.overrideWithValue(db),
-          secureStoreProvider.overrideWithValue(store),
-          authServiceProvider.overrideWithValue(auth),
-        ],
-        child: const PgManagerApp(),
-      );
+    overrides: [
+      databaseProvider.overrideWithValue(db),
+      secureStoreProvider.overrideWithValue(store),
+      authServiceProvider.overrideWithValue(auth),
+    ],
+    child: const PgManagerApp(),
+  );
 
   testWidgets('first launch shows PG setup', (tester) async {
     tester.view.physicalSize = const Size(1080, 2340);

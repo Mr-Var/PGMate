@@ -32,6 +32,7 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
       floatingActionButton: rooms.value?.isEmpty ?? true
           ? null
           : FloatingActionButton.extended(
+              heroTag: null,
               onPressed: () => context.push('/rooms/new'),
               icon: const Icon(Icons.add_rounded),
               label: const Text('Add room'),
@@ -107,10 +108,7 @@ class _RoomList extends StatelessWidget {
           ),
         for (final floor in byFloor.keys) ...[
           SectionHeader(title: Dates.floorLabel(floor), count: byFloor[floor]!.length),
-          for (final r in byFloor[floor]!) ...[
-            _RoomCard(room: r),
-            const SizedBox(height: Gap.md),
-          ],
+          for (final r in byFloor[floor]!) ...[_RoomCard(room: r), const SizedBox(height: Gap.md)],
         ],
       ],
     );
@@ -205,8 +203,10 @@ class _BedChip extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Bed ${bed.bed.label}',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: s.color)),
+                    Text(
+                      'Bed ${bed.bed.label}',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: s.color),
+                    ),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 110),
                       child: Text(

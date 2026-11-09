@@ -14,8 +14,10 @@ void main() {
   test('PBKDF2 is deterministic per salt and differs across salts', () {
     final salt = PinHasher.newSalt();
     expect(PinHasher.hashSync('2580', salt, iterations: 1000), PinHasher.hashSync('2580', salt, iterations: 1000));
-    expect(PinHasher.hashSync('2580', salt, iterations: 1000),
-        isNot(PinHasher.hashSync('2580', PinHasher.newSalt(), iterations: 1000)));
+    expect(
+      PinHasher.hashSync('2580', salt, iterations: 1000),
+      isNot(PinHasher.hashSync('2580', PinHasher.newSalt(), iterations: 1000)),
+    );
   });
 
   test('PIN is never stored in plain text', () async {

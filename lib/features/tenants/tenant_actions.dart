@@ -73,7 +73,10 @@ class _BedSheetState extends ConsumerState<_BedSheet> {
                 loading: () => const SkeletonBox(height: 56, radius: Radii.md),
                 error: (e, _) => Text('$e'),
                 data: (list) => list.isEmpty
-                    ? const Text('No free beds right now. Free or add a bed in Rooms first.', style: TextStyle(color: AppColors.warning))
+                    ? const Text(
+                        'No free beds right now. Free or add a bed in Rooms first.',
+                        style: TextStyle(color: AppColors.warning),
+                      )
                     : DropdownButtonFormField<FreeBed>(
                         isExpanded: true,
                         initialValue: _bed,
@@ -82,8 +85,10 @@ class _BedSheetState extends ConsumerState<_BedSheet> {
                           for (final b in list)
                             DropdownMenuItem(
                               value: b,
-                              child: Text('${b.label} · ${Dates.floorLabel(b.room.floor)} · ${Money.format(b.room.rentPaise)}',
-                                  overflow: TextOverflow.ellipsis),
+                              child: Text(
+                                '${b.label} · ${Dates.floorLabel(b.room.floor)} · ${Money.format(b.room.rentPaise)}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                         ],
                         onChanged: (b) => setState(() {
@@ -94,10 +99,18 @@ class _BedSheetState extends ConsumerState<_BedSheet> {
                       ),
               ),
               const SizedBox(height: Gap.lg),
-              DateField(label: widget.transfer ? 'Move date' : 'Start date', value: _date, onChanged: (d) => setState(() => _date = d)),
+              DateField(
+                label: widget.transfer ? 'Move date' : 'Start date',
+                value: _date,
+                onChanged: (d) => setState(() => _date = d),
+              ),
               if (widget.transfer) ...[
                 const SizedBox(height: Gap.lg),
-                MoneyField(controller: _rent, label: 'Monthly rent after transfer', helper: 'Applies from the next invoice.'),
+                MoneyField(
+                  controller: _rent,
+                  label: 'Monthly rent after transfer',
+                  helper: 'Applies from the next invoice.',
+                ),
               ],
               const SizedBox(height: Gap.xl),
               AsyncButton(
@@ -108,7 +121,12 @@ class _BedSheetState extends ConsumerState<_BedSheet> {
                   final ok = await runGuarded(
                     context,
                     () => widget.transfer
-                        ? dao.transfer(widget.detail.tenant.id, _bed!.bed.id, _date, newRentPaise: MoneyField.read(_rent))
+                        ? dao.transfer(
+                            widget.detail.tenant.id,
+                            _bed!.bed.id,
+                            _date,
+                            newRentPaise: MoneyField.read(_rent),
+                          )
                         : dao.assignBed(widget.detail.tenant.id, _bed!.bed.id, _date),
                     success: widget.transfer ? 'Moved to ${_bed!.label}' : 'Assigned ${_bed!.label}',
                   );
@@ -139,8 +157,10 @@ Future<void> showNoticeSheet(BuildContext context, WidgetRef ref, TenantDetail d
             children: [
               Text('Record notice', style: Theme.of(ctx).textTheme.titleLarge),
               const SizedBox(height: Gap.xs),
-              Text('${d.tenant.fullName} plans to leave. You can withdraw the notice later.',
-                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+              Text(
+                '${d.tenant.fullName} plans to leave. You can withdraw the notice later.',
+                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              ),
               const SizedBox(height: Gap.lg),
               DateField(label: 'Notice given on', value: notice, onChanged: (v) => setState(() => notice = v)),
               const SizedBox(height: Gap.lg),
@@ -155,8 +175,11 @@ Future<void> showNoticeSheet(BuildContext context, WidgetRef ref, TenantDetail d
               AsyncButton(
                 label: 'Save notice',
                 onPressed: () async {
-                  final ok = await runGuarded(ctx, () => ref.read(databaseProvider).tenantsDao.giveNotice(d.tenant.id, notice, leave),
-                      success: 'Notice recorded');
+                  final ok = await runGuarded(
+                    ctx,
+                    () => ref.read(databaseProvider).tenantsDao.giveNotice(d.tenant.id, notice, leave),
+                    success: 'Notice recorded',
+                  );
                   if (ok && ctx.mounted) Navigator.pop(ctx);
                 },
               ),
@@ -183,16 +206,22 @@ class SettlementBanner extends StatelessWidget {
         color: refund ? AppColors.successSoft : AppColors.dangerSoft,
         borderRadius: BorderRadius.circular(Radii.lg),
       ),
-      child: Row(children: [
-        Icon(refund ? Icons.south_west_rounded : Icons.north_east_rounded, color: color),
-        const SizedBox(width: Gap.md),
-        Expanded(
-          child: Text(refund ? 'Refund to tenant' : 'Collect from tenant',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(color: color)),
-        ),
-        Text(Money.format(amountPaise.abs()),
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color, fontFeatures: AppTheme.tabular)),
-      ]),
+      child: Row(
+        children: [
+          Icon(refund ? Icons.south_west_rounded : Icons.north_east_rounded, color: color),
+          const SizedBox(width: Gap.md),
+          Expanded(
+            child: Text(
+              refund ? 'Refund to tenant' : 'Collect from tenant',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(color: color),
+            ),
+          ),
+          Text(
+            Money.format(amountPaise.abs()),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color, fontFeatures: AppTheme.tabular),
+          ),
+        ],
+      ),
     );
   }
 }

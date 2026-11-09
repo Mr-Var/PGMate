@@ -127,17 +127,13 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
       return row.read<int?>('v') ?? 0;
     }
 
-    final totalTenants = await scalar(
-      'SELECT COUNT(*) AS v FROM tenants WHERE status IN (?, ?, ?)',
-      [
-        Variable.withString(TenantStatus.newTenant.name),
-        Variable.withString(TenantStatus.active.name),
-        Variable.withString(TenantStatus.noticeGiven.name),
-      ],
-    );
+    final totalTenants = await scalar('SELECT COUNT(*) AS v FROM tenants WHERE status IN (?, ?, ?)', [
+      Variable.withString(TenantStatus.newTenant.name),
+      Variable.withString(TenantStatus.active.name),
+      Variable.withString(TenantStatus.noticeGiven.name),
+    ]);
 
-    final bedRow = await customSelect(
-      '''
+    final bedRow = await customSelect('''
       SELECT
         COUNT(*) AS total,
         SUM(CASE WHEN a.id IS NOT NULL THEN 1 ELSE 0 END) AS occupied,
@@ -147,8 +143,7 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
       JOIN rooms r ON r.id = b.room_id AND r.is_active = 1
       LEFT JOIN allocations a ON a.bed_id = b.id AND a.is_active = 1
       WHERE b.is_active = 1
-      ''',
-    ).getSingle();
+      ''').getSingle();
 
     final billed = await scalar(
       'SELECT SUM(total_paise) AS v FROM rent_invoices '
@@ -176,10 +171,9 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
       [start, end],
     );
 
-    final pendingUpi = await scalar(
-      'SELECT COUNT(*) AS v FROM payments WHERE status = ?',
-      [Variable.withString(PaymentStatus.pendingVerification.name)],
-    );
+    final pendingUpi = await scalar('SELECT COUNT(*) AS v FROM payments WHERE status = ?', [
+      Variable.withString(PaymentStatus.pendingVerification.name),
+    ]);
 
     Future<List<DueItem>> dues(String dateCondition, List<Variable> vars) async {
       final rows = await customSelect(
@@ -194,20 +188,22 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
         readsFrom: {rentInvoices, tenants},
       ).get();
       return rows
-          .map((r) => DueItem(
-                tenantId: r.read<int>('tenant_id'),
-                tenantName: r.read<String>('full_name'),
-                roomLabel: r.read<String?>('room_label'),
-                balancePaise: r.read<int>('balance'),
-                dueDate: DateTime.fromMillisecondsSinceEpoch(r.read<int>('due') * 1000),
-              ))
+          .map(
+            (r) => DueItem(
+              tenantId: r.read<int>('tenant_id'),
+              tenantName: r.read<String>('full_name'),
+              roomLabel: r.read<String?>('room_label'),
+              balancePaise: r.read<int>('balance'),
+              dueDate: DateTime.fromMillisecondsSinceEpoch(r.read<int>('due') * 1000),
+            ),
+          )
           .toList();
     }
 
-    final dueToday = await dues(
-      'i.due_date >= ? AND i.due_date < ?',
-      [Variable.withDateTime(today), Variable.withDateTime(tomorrow)],
-    );
+    final dueToday = await dues('i.due_date >= ? AND i.due_date < ?', [
+      Variable.withDateTime(today),
+      Variable.withDateTime(tomorrow),
+    ]);
     final overdue = await dues('i.due_date < ?', [Variable.withDateTime(today)]);
 
     final checkoutRows = await customSelect(
@@ -223,8 +219,7 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
       ],
     ).get();
 
-    final recentRows = await customSelect(
-      '''
+    final recentRows = await customSelect('''
       SELECT * FROM (
         SELECT 'payment' AS src, p.kind AS kind, p.method AS method, p.status AS status,
                t.full_name AS title, p.receipt_number AS ref, p.amount_paise AS amount,
@@ -236,8 +231,7 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
                e.expense_date, e.created_at
         FROM expenses e WHERE e.is_voided = 0
       ) ORDER BY d DESC, c DESC LIMIT 8
-      ''',
-    ).get();
+      ''').get();
 
     return DashboardSummary(
       range: range,
@@ -254,12 +248,14 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
       dueToday: dueToday,
       overdue: overdue,
       upcomingCheckouts: checkoutRows
-          .map((r) => CheckoutItem(
-                tenantId: r.read<int>('id'),
-                tenantName: r.read<String>('full_name'),
-                roomLabel: r.read<String?>('room_label'),
-                date: DateTime.fromMillisecondsSinceEpoch(r.read<int>('d') * 1000),
-              ))
+          .map(
+            (r) => CheckoutItem(
+              tenantId: r.read<int>('id'),
+              tenantName: r.read<String>('full_name'),
+              roomLabel: r.read<String?>('room_label'),
+              date: DateTime.fromMillisecondsSinceEpoch(r.read<int>('d') * 1000),
+            ),
+          )
           .toList(),
       recent: recentRows.map(_toRecent).toList(),
     );

@@ -39,7 +39,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _saveProfile(PgProfileData d) async {
-    await ref.read(databaseProvider).settingsDao.saveProfile(
+    await ref
+        .read(databaseProvider)
+        .settingsDao
+        .saveProfile(
           name: d.name,
           address: d.address,
           ownerName: d.ownerName,
@@ -106,61 +109,61 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           duration: const Duration(milliseconds: 250),
           child: switch (_step) {
             _Step.profile => ListView(
-                key: const ValueKey('profile'),
-                padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.xxl),
+              key: const ValueKey('profile'),
+              padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.xxl),
+              children: [
+                _Progress(step: stepIndex),
+                const SizedBox(height: Gap.xl),
+                const _BrandMark(),
+                const SizedBox(height: Gap.lg),
+                Text('Set up your PG', style: t.headlineMedium),
+                const SizedBox(height: Gap.xs),
+                Text(
+                  'These details appear on receipts and reports. Everything is stored only on this phone.',
+                  style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: Gap.xl),
+                PgProfileForm(submitLabel: 'Continue', onSubmit: _saveProfile),
+              ],
+            ),
+            _Step.createPin || _Step.confirmPin => _PinStep(
+              key: ValueKey(_step),
+              progress: _Progress(step: stepIndex),
+              title: _step == _Step.createPin ? 'Create your PIN' : 'Confirm your PIN',
+              subtitle: _step == _Step.createPin
+                  ? 'Choose a ${AuthService.pinLength}-digit PIN to protect tenant and payment data.'
+                  : 'Enter the same PIN again.',
+              error: _pinError,
+              busy: _busy,
+              onCompleted: _onPin,
+            ),
+            _Step.biometric => Padding(
+              key: const ValueKey('bio'),
+              padding: const EdgeInsets.all(Gap.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _Progress(step: stepIndex),
-                  const SizedBox(height: Gap.xl),
-                  const _BrandMark(),
+                  const Spacer(),
+                  const Icon(Icons.fingerprint_rounded, size: 72, color: AppColors.primary),
                   const SizedBox(height: Gap.lg),
-                  Text('Set up your PG', style: t.headlineMedium),
-                  const SizedBox(height: Gap.xs),
+                  Text('Unlock faster', style: t.headlineSmall, textAlign: TextAlign.center),
+                  const SizedBox(height: Gap.sm),
                   Text(
-                    'These details appear on receipts and reports. Everything is stored only on this phone.',
+                    'Use your fingerprint to open PG Manager. Your PIN will still be needed for sensitive actions.',
                     style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: Gap.xl),
-                  PgProfileForm(submitLabel: 'Continue', onSubmit: _saveProfile),
+                  const Spacer(),
+                  if (_biometricAvailable)
+                    FilledButton(
+                      onPressed: () => _finish(enableBiometric: true),
+                      child: const Text('Enable biometric unlock'),
+                    ),
+                  const SizedBox(height: Gap.sm),
+                  TextButton(onPressed: _finish, child: const Text('Not now')),
                 ],
               ),
-            _Step.createPin || _Step.confirmPin => _PinStep(
-                key: ValueKey(_step),
-                progress: _Progress(step: stepIndex),
-                title: _step == _Step.createPin ? 'Create your PIN' : 'Confirm your PIN',
-                subtitle: _step == _Step.createPin
-                    ? 'Choose a ${AuthService.pinLength}-digit PIN to protect tenant and payment data.'
-                    : 'Enter the same PIN again.',
-                error: _pinError,
-                busy: _busy,
-                onCompleted: _onPin,
-              ),
-            _Step.biometric => Padding(
-                key: const ValueKey('bio'),
-                padding: const EdgeInsets.all(Gap.xl),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Spacer(),
-                    const Icon(Icons.fingerprint_rounded, size: 72, color: AppColors.primary),
-                    const SizedBox(height: Gap.lg),
-                    Text('Unlock faster', style: t.headlineSmall, textAlign: TextAlign.center),
-                    const SizedBox(height: Gap.sm),
-                    Text(
-                      'Use your fingerprint to open PG Manager. Your PIN will still be needed for sensitive actions.',
-                      style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
-                      textAlign: TextAlign.center,
-                    ),
-                    const Spacer(),
-                    if (_biometricAvailable)
-                      FilledButton(
-                        onPressed: () => _finish(enableBiometric: true),
-                        child: const Text('Enable biometric unlock'),
-                      ),
-                    const SizedBox(height: Gap.sm),
-                    TextButton(onPressed: _finish, child: const Text('Not now')),
-                  ],
-                ),
-              ),
+            ),
           },
         ),
       ),
@@ -199,7 +202,11 @@ class _PinStep extends StatelessWidget {
           const SizedBox(height: Gap.lg),
           Text(title, style: t.headlineSmall),
           const SizedBox(height: Gap.sm),
-          Text(subtitle, style: t.bodyMedium?.copyWith(color: AppColors.textSecondary), textAlign: TextAlign.center),
+          Text(
+            subtitle,
+            style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: Gap.xl),
           PinPad(length: AuthService.pinLength, errorText: error, busy: busy, onCompleted: onCompleted),
         ],

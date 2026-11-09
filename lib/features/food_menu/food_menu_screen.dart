@@ -49,72 +49,109 @@ class FoodMenuScreen extends ConsumerWidget {
           PopupMenuButton<String>(
             onSelected: (_) async {
               final n = await ref.read(databaseProvider).opsDao.copyPreviousWeek(start);
-              if (context.mounted) showAppSnack(context, n == 0 ? 'Last week has no menu to copy' : 'Copied $n days from last week');
+              if (context.mounted) {
+                showAppSnack(context, n == 0 ? 'Last week has no menu to copy' : 'Copied $n days from last week');
+              }
             },
             itemBuilder: (_) => const [PopupMenuItem(value: 'copy', child: Text('Copy last week'))],
           ),
         ],
       ),
-      body: Column(children: [
-        Row(children: [
-          IconButton(tooltip: 'Previous week', onPressed: () => ref.read(_weekProvider.notifier).shift(-1), icon: const Icon(Icons.chevron_left_rounded)),
+      body: Column(
+        children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Previous week',
+                onPressed: () => ref.read(_weekProvider.notifier).shift(-1),
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Expanded(
+                child: Text(
+                  '${Dates.dayMonth(start)} – ${Dates.dayMonth(start.add(const Duration(days: 6)))}',
+                  textAlign: TextAlign.center,
+                  style: t.titleMedium,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Next week',
+                onPressed: () => ref.read(_weekProvider.notifier).shift(1),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
           Expanded(
-            child: Text(
-              '${Dates.dayMonth(start)} – ${Dates.dayMonth(start.add(const Duration(days: 6)))}',
-              textAlign: TextAlign.center,
-              style: t.titleMedium,
+            child: menus.when(
+              skipLoadingOnReload: true,
+              loading: () => const LoadingList(count: 7, itemHeight: 96),
+              error: (e, _) => ErrorState(error: e),
+              data: (list) {
+                final byDay = {for (final m in list) Dates.today(m.menuDate): m};
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
+                  itemCount: 7,
+                  separatorBuilder: (_, _) => const SizedBox(height: Gap.sm),
+                  itemBuilder: (_, i) {
+                    final day = start.add(Duration(days: i));
+                    final m = byDay[day];
+                    final isToday = day == today;
+                    return AppCard(
+                      onTap: () => _edit(context, ref, day, m),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 52,
+                            child: Column(
+                              children: [
+                                Text(
+                                  DateFormat('EEE').format(day),
+                                  style: t.labelMedium?.copyWith(
+                                    color: isToday ? AppColors.primary : AppColors.textMuted,
+                                  ),
+                                ),
+                                Text(
+                                  '${day.day}',
+                                  style: t.titleLarge?.copyWith(
+                                    color: isToday ? AppColors.primary : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: Gap.md),
+                          Expanded(
+                            child: m == null || (m.breakfast.isEmpty && m.lunch.isEmpty && m.dinner.isEmpty)
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: Gap.sm),
+                                    child: Text(
+                                      'Tap to set the menu',
+                                      style: t.bodyMedium?.copyWith(color: AppColors.textMuted),
+                                    ),
+                                  )
+                                : Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _Meal(
+                                        icon: Icons.free_breakfast_outlined,
+                                        label: 'Breakfast',
+                                        value: m.breakfast,
+                                      ),
+                                      _Meal(icon: Icons.lunch_dining_outlined, label: 'Lunch', value: m.lunch),
+                                      _Meal(icon: Icons.dinner_dining_outlined, label: 'Dinner', value: m.dinner),
+                                    ],
+                                  ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ),
-          IconButton(tooltip: 'Next week', onPressed: () => ref.read(_weekProvider.notifier).shift(1), icon: const Icon(Icons.chevron_right_rounded)),
-        ]),
-        Expanded(
-          child: menus.when(
-            skipLoadingOnReload: true,
-            loading: () => const LoadingList(count: 7, itemHeight: 96),
-            error: (e, _) => ErrorState(error: e),
-            data: (list) {
-              final byDay = {for (final m in list) Dates.today(m.menuDate): m};
-              return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-                itemCount: 7,
-                separatorBuilder: (_, _) => const SizedBox(height: Gap.sm),
-                itemBuilder: (_, i) {
-                  final day = start.add(Duration(days: i));
-                  final m = byDay[day];
-                  final isToday = day == today;
-                  return AppCard(
-                    onTap: () => _edit(context, ref, day, m),
-                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      SizedBox(
-                        width: 52,
-                        child: Column(children: [
-                          Text(DateFormat('EEE').format(day),
-                              style: t.labelMedium?.copyWith(color: isToday ? AppColors.primary : AppColors.textMuted)),
-                          Text('${day.day}',
-                              style: t.titleLarge?.copyWith(color: isToday ? AppColors.primary : AppColors.textPrimary)),
-                        ]),
-                      ),
-                      const SizedBox(width: Gap.md),
-                      Expanded(
-                        child: m == null || (m.breakfast.isEmpty && m.lunch.isEmpty && m.dinner.isEmpty)
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: Gap.sm),
-                                child: Text('Tap to set the menu', style: t.bodyMedium?.copyWith(color: AppColors.textMuted)),
-                              )
-                            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                _Meal(icon: Icons.free_breakfast_outlined, label: 'Breakfast', value: m.breakfast),
-                                _Meal(icon: Icons.lunch_dining_outlined, label: 'Lunch', value: m.lunch),
-                                _Meal(icon: Icons.dinner_dining_outlined, label: 'Dinner', value: m.dinner),
-                              ]),
-                      ),
-                    ]),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 
@@ -128,23 +165,45 @@ class FoodMenuScreen extends ConsumerWidget {
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.xl + MediaQuery.viewInsetsOf(ctx).bottom),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(DateFormat('EEEE, d MMMM').format(day), style: Theme.of(ctx).textTheme.titleLarge),
-            const SizedBox(height: Gap.lg),
-            TextField(controller: b, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'Breakfast', prefixIcon: Icon(Icons.free_breakfast_outlined))),
-            const SizedBox(height: Gap.md),
-            TextField(controller: l, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'Lunch', prefixIcon: Icon(Icons.lunch_dining_outlined))),
-            const SizedBox(height: Gap.md),
-            TextField(controller: d, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'Dinner', prefixIcon: Icon(Icons.dinner_dining_outlined))),
-            const SizedBox(height: Gap.xl),
-            AsyncButton(
-              label: 'Save menu',
-              onPressed: () async {
-                await ref.read(databaseProvider).opsDao.saveMenu(day, breakfast: b.text, lunch: l.text, dinner: d.text);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-            ),
-          ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(DateFormat('EEEE, d MMMM').format(day), style: Theme.of(ctx).textTheme.titleLarge),
+              const SizedBox(height: Gap.lg),
+              TextField(
+                controller: b,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Breakfast',
+                  prefixIcon: Icon(Icons.free_breakfast_outlined),
+                ),
+              ),
+              const SizedBox(height: Gap.md),
+              TextField(
+                controller: l,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(labelText: 'Lunch', prefixIcon: Icon(Icons.lunch_dining_outlined)),
+              ),
+              const SizedBox(height: Gap.md),
+              TextField(
+                controller: d,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(labelText: 'Dinner', prefixIcon: Icon(Icons.dinner_dining_outlined)),
+              ),
+              const SizedBox(height: Gap.xl),
+              AsyncButton(
+                label: 'Save menu',
+                onPressed: () async {
+                  await ref
+                      .read(databaseProvider)
+                      .opsDao
+                      .saveMenu(day, breakfast: b.text, lunch: l.text, dinner: d.text);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -156,7 +215,9 @@ class FoodMenuScreen extends ConsumerWidget {
       return;
     }
     final pg = ref.read(pgProfileProvider).value;
-    final b = StringBuffer('*${pg?.name ?? 'PG'} · Menu ${Dates.dayMonth(start)} – ${Dates.dayMonth(start.add(const Duration(days: 6)))}*\n');
+    final b = StringBuffer(
+      '*${pg?.name ?? 'PG'} · Menu ${Dates.dayMonth(start)} – ${Dates.dayMonth(start.add(const Duration(days: 6)))}*\n',
+    );
     for (final m in menus) {
       b.writeln('\n*${DateFormat('EEE d MMM').format(m.menuDate)}*');
       if (m.breakfast.isNotEmpty) b.writeln('Breakfast: ${m.breakfast}');
@@ -178,11 +239,14 @@ class _Meal extends StatelessWidget {
     if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, size: 16, color: AppColors.textMuted),
-        const SizedBox(width: 6),
-        Expanded(child: Text(value, style: Theme.of(context).textTheme.bodyMedium)),
-      ]),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: AppColors.textMuted),
+          const SizedBox(width: 6),
+          Expanded(child: Text(value, style: Theme.of(context).textTheme.bodyMedium)),
+        ],
+      ),
     );
   }
 }

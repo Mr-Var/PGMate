@@ -17,7 +17,12 @@ void main() {
   late AppDatabase db;
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    await db.settingsDao.saveProfile(name: 'Test PG', address: 'Somewhere 1', ownerName: 'Owner', ownerPhone: '9876543210');
+    await db.settingsDao.saveProfile(
+      name: 'Test PG',
+      address: 'Somewhere 1',
+      ownerName: 'Owner',
+      ownerPhone: '9876543210',
+    );
     await db.roomsDao.addRoom(roomNumber: '101', floor: 1, rentPaise: 900000, bedCount: 3);
   });
   tearDown(() => db.close());
@@ -50,7 +55,10 @@ void main() {
   }
 
   Future<List<RentInvoice>> invoices(int tenantId) =>
-      (db.select(db.rentInvoices)..where((i) => i.tenantId.equals(tenantId))..orderBy([(i) => OrderingTerm.asc(i.periodStart)])).get();
+      (db.select(db.rentInvoices)
+            ..where((i) => i.tenantId.equals(tenantId))
+            ..orderBy([(i) => OrderingTerm.asc(i.periodStart)]))
+          .get();
 
   group('BillingMath', () {
     test('prorates by days and rounds to paise', () {
@@ -113,7 +121,9 @@ void main() {
       expect(r2.skipped, 1);
 
       // A later rent change does not rewrite the December invoice.
-      await (db.update(db.tenants)..where((t) => t.id.equals(id))).write(const TenantsCompanion(monthlyRentPaise: Value(1000000)));
+      await (db.update(
+        db.tenants,
+      )..where((t) => t.id.equals(id))).write(const TenantsCompanion(monthlyRentPaise: Value(1000000)));
       final dec = (await invoices(id)).last;
       expect(dec.rentPaise, 900000);
       await db.billingDao.generateMonthlyInvoices(2027, 1);
@@ -125,7 +135,9 @@ void main() {
       final inv = (await invoices(id)).single;
       await db.billingDao.adjustInvoice(inv.id, additionalChargesPaise: 50000, discountPaise: 20000);
       expect((await invoices(id)).single.totalPaise, 930000);
-      await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 900000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 900000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+      );
       expect(
         () => db.billingDao.adjustInvoice(inv.id, additionalChargesPaise: 0, discountPaise: 100000),
         throwsA(isA<RuleException>()),
@@ -135,7 +147,9 @@ void main() {
     test('invoices with payments cannot be cancelled', () async {
       final id = await newTenant();
       final inv = (await invoices(id)).single;
-      await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 100, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 100, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+      );
       expect(() => db.billingDao.cancelInvoice(inv.id, 'mistake'), throwsA(isA<RuleException>()));
     });
   });
@@ -143,13 +157,17 @@ void main() {
   group('Payments', () {
     test('partial payments, then overpayment becomes credit used by the next invoice', () async {
       final id = await newTenant();
-      await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 400000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 400000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+      );
       var inv = (await invoices(id)).single;
       // Partly paid; shown as overdue once the due date (5 Nov) has passed.
       expect(inv.status, isIn([InvoiceStatus.partiallyPaid, InvoiceStatus.overdue]));
       expect(inv.paidPaise, 400000);
 
-      await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 700000, method: PaymentMethod.cash, date: DateTime(2026, 11, 10)));
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 700000, method: PaymentMethod.cash, date: DateTime(2026, 11, 10)),
+      );
       inv = (await invoices(id)).single;
       expect(inv.status, InvoiceStatus.paid);
       expect(await db.billingDao.tenantCredit(id), 200000);
@@ -163,13 +181,15 @@ void main() {
 
     test('unverified UPI is not allocated until the owner verifies it', () async {
       final id = await newTenant();
-      final p = await db.billingDao.recordPayment(PaymentInput(
-        tenantId: id,
-        amountPaise: 900000,
-        method: PaymentMethod.upi,
-        date: DateTime(2026, 11, 3),
-        upiReference: '612345678901',
-      ));
+      final p = await db.billingDao.recordPayment(
+        PaymentInput(
+          tenantId: id,
+          amountPaise: 900000,
+          method: PaymentMethod.upi,
+          date: DateTime(2026, 11, 3),
+          upiReference: '612345678901',
+        ),
+      );
       expect((await invoices(id)).single.paidPaise, 0);
       final summary1 = await db.dashboardDao.summary(DateRange.month(2026, 11));
       expect(summary1.rentCollectedPaise, 0);
@@ -183,15 +203,31 @@ void main() {
 
     test('duplicate UTR is rejected with a clear message', () async {
       final id = await newTenant();
-      final input = PaymentInput(tenantId: id, amountPaise: 1000, method: PaymentMethod.upi, date: DateTime(2026, 11, 3), upiReference: 'abc123456');
+      final input = PaymentInput(
+        tenantId: id,
+        amountPaise: 1000,
+        method: PaymentMethod.upi,
+        date: DateTime(2026, 11, 3),
+        upiReference: 'abc123456',
+      );
       await db.billingDao.recordPayment(input);
-      expect(() => db.billingDao.recordPayment(input), throwsA(isA<RuleException>().having((e) => e.message, 'msg', contains('ABC123456'))));
+      expect(
+        () => db.billingDao.recordPayment(input),
+        throwsA(isA<RuleException>().having((e) => e.message, 'msg', contains('ABC123456'))),
+      );
     });
 
     test('rejected UPI never counts and cannot be reversed', () async {
       final id = await newTenant();
-      final p = await db.billingDao.recordPayment(PaymentInput(
-          tenantId: id, amountPaise: 5000, method: PaymentMethod.upi, date: DateTime(2026, 11, 3), upiReference: 'R0000001'));
+      final p = await db.billingDao.recordPayment(
+        PaymentInput(
+          tenantId: id,
+          amountPaise: 5000,
+          method: PaymentMethod.upi,
+          date: DateTime(2026, 11, 3),
+          upiReference: 'R0000001',
+        ),
+      );
       await db.billingDao.rejectUpiPayment(p, 'Not received');
       expect(() => db.billingDao.reversePayment(p, 'x'), throwsA(isA<RuleException>()));
       expect(await db.billingDao.tenantCredit(id), 0);
@@ -199,7 +235,9 @@ void main() {
 
     test('reversal restores the invoice balance and keeps the original record', () async {
       final id = await newTenant();
-      final p = await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 900000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+      final p = await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 900000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+      );
       expect((await invoices(id)).single.status, InvoiceStatus.paid);
 
       await db.billingDao.reversePayment(p, 'Wrong tenant');
@@ -217,7 +255,9 @@ void main() {
     test('receipt numbers are sequential and unique', () async {
       final id = await newTenant();
       for (var i = 0; i < 3; i++) {
-        await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 1000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+        await db.billingDao.recordPayment(
+          PaymentInput(tenantId: id, amountPaise: 1000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+        );
       }
       final nums = (await db.select(db.payments).get()).map((p) => p.receiptNumber).toList();
       expect(nums, ['RCPT-2026-0001', 'RCPT-2026-0002', 'RCPT-2026-0003']);
@@ -225,7 +265,9 @@ void main() {
 
     test('receipt data includes allocations and balance after payment', () async {
       final id = await newTenant();
-      final p = await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 300000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+      final p = await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 300000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+      );
       final r = await db.billingDao.receiptData(p);
       expect(r.lines.single.amountPaise, 300000);
       expect(r.outstandingPaise, 600000);
@@ -239,7 +281,9 @@ void main() {
       final id = await newTenant(deposit: 1500000, bed: b);
       await db.billingDao.generateMonthlyInvoices(2026, 12);
       // Nov paid, December unpaid. Leaves on 10 Dec: 10 of 31 days.
-      await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 900000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 900000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+      );
 
       final preview = await db.billingDao.previewCheckout(id, DateTime(2026, 12, 10), deductionsPaise: 50000);
       final dec10 = BillingMath.prorate(900000, 10, 31);
@@ -248,7 +292,12 @@ void main() {
       expect(preview.depositUsedPaise, dec10 + 50000);
       expect(preview.settlementPaise, 1500000 - dec10 - 50000);
 
-      final result = await db.billingDao.checkout(id, DateTime(2026, 12, 10), deductionsPaise: 50000, deductionNote: 'Broken chair');
+      final result = await db.billingDao.checkout(
+        id,
+        DateTime(2026, 12, 10),
+        deductionsPaise: 50000,
+        deductionNote: 'Broken chair',
+      );
       expect(result.toCollectPaise, 0);
       expect(result.refundPaise, preview.settlementPaise);
 
@@ -307,9 +356,16 @@ void main() {
   group('Reports', () {
     test('financial summary separates billed, collected, outstanding and expenses', () async {
       final id = await newTenant();
-      await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 500000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 500000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+      );
       await db.opsDao.addExpense(
-          title: 'Power', category: ExpenseCategory.electricity, amountPaise: 200000, date: DateTime(2026, 11, 4), method: PaymentMethod.upi);
+        title: 'Power',
+        category: ExpenseCategory.electricity,
+        amountPaise: 200000,
+        date: DateTime(2026, 11, 4),
+        method: PaymentMethod.upi,
+      );
       final r = await db.reportsDao.build(ReportType.financialSummary, DateRange.month(2026, 11));
       final m = {for (final s in r.summary) s.$1: s.$2};
       expect(m['Rent billed'], '₹9,000');
@@ -321,9 +377,16 @@ void main() {
 
     test('every report builds on real data', () async {
       final id = await newTenant(deposit: 500000);
-      await db.billingDao.recordPayment(PaymentInput(tenantId: id, amountPaise: 300000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)));
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 300000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+      );
       for (final type in ReportType.values) {
-        final r = await db.reportsDao.build(type, DateRange.month(2026, 11), tenantId: id, today: DateTime(2026, 11, 20));
+        final r = await db.reportsDao.build(
+          type,
+          DateRange.month(2026, 11),
+          tenantId: id,
+          today: DateTime(2026, 11, 20),
+        );
         expect(r.title, isNotEmpty, reason: type.name);
         for (final row in r.rows) {
           expect(row.length, r.columns.length, reason: '${type.name} row width');

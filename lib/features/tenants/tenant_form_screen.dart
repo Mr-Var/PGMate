@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,11 +29,18 @@ class TenantFormScreen extends ConsumerWidget {
     final detail = ref.watch(tenantDetailProvider(tenantId!));
     return detail.when(
       loading: () => const Scaffold(body: LoadingList()),
-      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorState(error: e)),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(),
+        body: ErrorState(error: e),
+      ),
       data: (d) => d == null
           ? Scaffold(
               appBar: AppBar(),
-              body: const EmptyState(icon: Icons.search_off_rounded, title: 'Tenant not found', message: 'This record no longer exists.'),
+              body: const EmptyState(
+                icon: Icons.search_off_rounded,
+                title: 'Tenant not found',
+                message: 'This record no longer exists.',
+              ),
             )
           : _TenantForm(existing: d.tenant),
     );
@@ -92,7 +98,20 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
 
   @override
   void dispose() {
-    for (final c in [_name, _phone, _email, _occupation, _emName, _emPhone, _idNumber, _rent, _deposit, _advance, _utr, _notes]) {
+    for (final c in [
+      _name,
+      _phone,
+      _email,
+      _occupation,
+      _emName,
+      _emPhone,
+      _idNumber,
+      _rent,
+      _deposit,
+      _advance,
+      _utr,
+      _notes,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -104,8 +123,12 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
       return;
     }
     final files = ref.read(fileStoreProvider);
-    final photo = _newPhoto == null ? _e?.photoPath : await files.save(_newPhoto!.$1, folder: 'tenants', extension: _newPhoto!.$2);
-    final idDoc = _newIdDoc == null ? _e?.idProofPath : await files.save(_newIdDoc!.$1, folder: 'id_proofs', extension: _newIdDoc!.$2);
+    final photo = _newPhoto == null
+        ? _e?.photoPath
+        : await files.save(_newPhoto!.$1, folder: 'tenants', extension: _newPhoto!.$2);
+    final idDoc = _newIdDoc == null
+        ? _e?.idProofPath
+        : await files.save(_newIdDoc!.$1, folder: 'id_proofs', extension: _newIdDoc!.$2);
     final input = TenantInput(
       fullName: _name.text,
       phone: _phone.text,
@@ -159,72 +182,82 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
             children: [
-              Center(child: _PhotoPicker(
-                existing: _e?.photoPath,
-                picked: _newPhoto?.$1,
-                name: _name.text,
-                onPick: () async {
-                  final img = await pickImage(context, title: 'Tenant photo');
-                  if (img != null) setState(() => _newPhoto = img);
-                },
-              )),
-              const SizedBox(height: Gap.xl),
-              FormSection(title: 'Personal details', icon: Icons.person_outline_rounded, children: [
-                TextFormField(
-                  controller: _name,
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'Full name'),
-                  onChanged: (_) => setState(() {}),
-                  validator: (v) => Validators.required(v, 'Full name', min: 2, max: 120),
-                ),
-                TextFormField(
-                  controller: _phone,
-                  keyboardType: TextInputType.phone,
-                  textInputAction: TextInputAction.next,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                  decoration: const InputDecoration(labelText: 'Mobile number', prefixText: '+91 '),
-                  validator: Validators.indianPhone,
-                ),
-                TextFormField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  autocorrect: false,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'Email (optional)'),
-                  validator: (v) {
-                    final s = v?.trim() ?? '';
-                    if (s.isEmpty) return null;
-                    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s) ? null : 'Enter a valid email address';
+              Center(
+                child: _PhotoPicker(
+                  existing: _e?.photoPath,
+                  picked: _newPhoto?.$1,
+                  name: _name.text,
+                  onPick: () async {
+                    final img = await pickImage(context, title: 'Tenant photo');
+                    if (img != null) setState(() => _newPhoto = img);
                   },
                 ),
-                SegmentedButton<Gender>(
-                  segments: [for (final g in Gender.values) ButtonSegment(value: g, label: Text(g.label))],
-                  selected: {_gender},
-                  onSelectionChanged: (s) => setState(() => _gender = s.first),
-                  showSelectedIcon: false,
-                ),
-                TextFormField(
-                  controller: _occupation,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(labelText: 'Occupation / company (optional)'),
-                ),
-              ]),
-              FormSection(title: 'Emergency contact', icon: Icons.emergency_outlined, children: [
-                TextFormField(
-                  controller: _emName,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(labelText: 'Name and relation', hintText: 'e.g. Suresh (father)'),
-                  validator: (v) => (v ?? '').trim().isEmpty ? 'Add an emergency contact' : null,
-                ),
-                TextFormField(
-                  controller: _emPhone,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                  decoration: const InputDecoration(labelText: 'Emergency phone', prefixText: '+91 '),
-                  validator: Validators.indianPhone,
-                ),
-              ]),
+              ),
+              const SizedBox(height: Gap.xl),
+              FormSection(
+                title: 'Personal details',
+                icon: Icons.person_outline_rounded,
+                children: [
+                  TextFormField(
+                    controller: _name,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(labelText: 'Full name'),
+                    onChanged: (_) => setState(() {}),
+                    validator: (v) => Validators.required(v, 'Full name', min: 2, max: 120),
+                  ),
+                  TextFormField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                    decoration: const InputDecoration(labelText: 'Mobile number', prefixText: '+91 '),
+                    validator: Validators.indianPhone,
+                  ),
+                  TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(labelText: 'Email (optional)'),
+                    validator: (v) {
+                      final s = v?.trim() ?? '';
+                      if (s.isEmpty) return null;
+                      return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s) ? null : 'Enter a valid email address';
+                    },
+                  ),
+                  SegmentedButton<Gender>(
+                    segments: [for (final g in Gender.values) ButtonSegment(value: g, label: Text(g.label))],
+                    selected: {_gender},
+                    onSelectionChanged: (s) => setState(() => _gender = s.first),
+                    showSelectedIcon: false,
+                  ),
+                  TextFormField(
+                    controller: _occupation,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Occupation / company (optional)'),
+                  ),
+                ],
+              ),
+              FormSection(
+                title: 'Emergency contact',
+                icon: Icons.emergency_outlined,
+                children: [
+                  TextFormField(
+                    controller: _emName,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Name and relation', hintText: 'e.g. Suresh (father)'),
+                    validator: (v) => (v ?? '').trim().isEmpty ? 'Add an emergency contact' : null,
+                  ),
+                  TextFormField(
+                    controller: _emPhone,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                    decoration: const InputDecoration(labelText: 'Emergency phone', prefixText: '+91 '),
+                    validator: Validators.indianPhone,
+                  ),
+                ],
+              ),
               FormSection(
                 title: 'ID proof',
                 icon: Icons.badge_outlined,
@@ -254,99 +287,116 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
                   ),
                 ],
               ),
-              FormSection(title: 'Stay and rent', icon: Icons.bed_outlined, children: [
-                if (!_isEdit) ...[
-                  DateField(
-                    label: 'Joining date',
-                    value: _joining,
-                    onChanged: (d) => setState(() => _joining = d),
+              FormSection(
+                title: 'Stay and rent',
+                icon: Icons.bed_outlined,
+                children: [
+                  if (!_isEdit) ...[
+                    DateField(label: 'Joining date', value: _joining, onChanged: (d) => setState(() => _joining = d)),
+                    _BedPicker(
+                      value: _bedId,
+                      onChanged: (bedId, rent) => setState(() {
+                        _bedId = bedId;
+                        if (rent != null && _rent.text.trim().isEmpty) _rent.text = Money.toInput(rent);
+                      }),
+                    ),
+                  ],
+                  MoneyField(
+                    controller: _rent,
+                    label: 'Monthly rent',
+                    onChanged: (_) => setState(() {}),
+                    helper: _isEdit ? 'Changes apply from the next invoice. Past invoices keep their amount.' : null,
                   ),
-                  _BedPicker(
-                    value: _bedId,
-                    onChanged: (bedId, rent) => setState(() {
-                      _bedId = bedId;
-                      if (rent != null && _rent.text.trim().isEmpty) _rent.text = Money.toInput(rent);
+                  DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    initialValue: _dueDay,
+                    decoration: const InputDecoration(labelText: 'Rent due day'),
+                    items: [
+                      for (var d = 1; d <= 28; d++) DropdownMenuItem(value: d, child: Text('Day $d of every month')),
+                    ],
+                    onChanged: (v) => setState(() {
+                      _dueDay = v ?? _dueDay;
+                      _dueDayTouched = true;
                     }),
                   ),
-                ],
-                MoneyField(
-                  controller: _rent,
-                  label: 'Monthly rent',
-                  onChanged: (_) => setState(() {}),
-                  helper: _isEdit ? 'Changes apply from the next invoice. Past invoices keep their amount.' : null,
-                ),
-                DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  initialValue: _dueDay,
-                  decoration: const InputDecoration(labelText: 'Rent due day'),
-                  items: [for (var d = 1; d <= 28; d++) DropdownMenuItem(value: d, child: Text('Day $d of every month'))],
-                  onChanged: (v) => setState(() {
-                    _dueDay = v ?? _dueDay;
-                    _dueDayTouched = true;
-                  }),
-                ),
-                MoneyField(
-                  controller: _deposit,
-                  label: 'Security deposit',
-                  allowZero: true,
-                  required: false,
-                  helper: 'Held, not counted as income. Settled at checkout.',
-                ),
-                if (!_isEdit) ...[
                   MoneyField(
-                    controller: _advance,
-                    label: 'Advance rent received now',
+                    controller: _deposit,
+                    label: 'Security deposit',
                     allowZero: true,
                     required: false,
-                    onChanged: (_) => setState(() {}),
-                    helper: 'Recorded as a payment and used against the first invoices.',
+                    helper: 'Held, not counted as income. Settled at checkout.',
                   ),
-                  if ((Money.parseRupees(_advance.text) ?? 0) > 0) ...[
-                    SegmentedButton<PaymentMethod>(
-                      segments: const [
-                        ButtonSegment(value: PaymentMethod.cash, label: Text('Cash'), icon: Icon(Icons.payments_outlined)),
-                        ButtonSegment(value: PaymentMethod.upi, label: Text('UPI'), icon: Icon(Icons.qr_code_2_rounded)),
-                      ],
-                      selected: {_advanceMethod},
-                      onSelectionChanged: (s) => setState(() => _advanceMethod = s.first),
+                  if (!_isEdit) ...[
+                    MoneyField(
+                      controller: _advance,
+                      label: 'Advance rent received now',
+                      allowZero: true,
+                      required: false,
+                      onChanged: (_) => setState(() {}),
+                      helper: 'Recorded as a payment and used against the first invoices.',
                     ),
-                    if (_advanceMethod == PaymentMethod.upi)
-                      TextFormField(
-                        controller: _utr,
-                        textCapitalization: TextCapitalization.characters,
-                        decoration: const InputDecoration(
-                          labelText: 'UPI reference (UTR)',
-                          helperText: 'Check it in your UPI or bank app before saving.',
+                    if ((Money.parseRupees(_advance.text) ?? 0) > 0) ...[
+                      SegmentedButton<PaymentMethod>(
+                        segments: const [
+                          ButtonSegment(
+                            value: PaymentMethod.cash,
+                            label: Text('Cash'),
+                            icon: Icon(Icons.payments_outlined),
+                          ),
+                          ButtonSegment(
+                            value: PaymentMethod.upi,
+                            label: Text('UPI'),
+                            icon: Icon(Icons.qr_code_2_rounded),
+                          ),
+                        ],
+                        selected: {_advanceMethod},
+                        onSelectionChanged: (s) => setState(() => _advanceMethod = s.first),
+                      ),
+                      if (_advanceMethod == PaymentMethod.upi)
+                        TextFormField(
+                          controller: _utr,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: const InputDecoration(
+                            labelText: 'UPI reference (UTR)',
+                            helperText: 'Check it in your UPI or bank app before saving.',
+                          ),
+                          validator: (v) => (v ?? '').trim().length < 6 ? 'Enter the UTR from your UPI app' : null,
                         ),
-                        validator: (v) => (v ?? '').trim().length < 6 ? 'Enter the UTR from your UPI app' : null,
+                    ],
+                    if (_bedId != null)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _firstInvoice,
+                        onChanged: (v) => setState(() => _firstInvoice = v),
+                        title: const Text('Create this month\'s invoice'),
+                        subtitle: Text(
+                          rentPaise == 0
+                              ? 'Enter the rent to see the amount'
+                              : _joining.day > 1
+                              ? '${Money.format(prorated)} for ${BillingMath.daysInMonth(_joining.year, _joining.month) - _joining.day + 1} days (prorated)'
+                              : Money.format(prorated),
+                          style: const TextStyle(fontFeatures: AppTheme.tabular),
+                        ),
                       ),
                   ],
-                  if (_bedId != null)
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _firstInvoice,
-                      onChanged: (v) => setState(() => _firstInvoice = v),
-                      title: const Text('Create this month\'s invoice'),
-                      subtitle: Text(
-                        rentPaise == 0
-                            ? 'Enter the rent to see the amount'
-                            : _joining.day > 1
-                                ? '${Money.format(prorated)} for ${BillingMath.daysInMonth(_joining.year, _joining.month) - _joining.day + 1} days (prorated)'
-                                : Money.format(prorated),
-                        style: const TextStyle(fontFeatures: AppTheme.tabular),
-                      ),
-                    ),
                 ],
-              ]),
-              FormSection(title: 'Notes', icon: Icons.notes_rounded, children: [
-                TextFormField(
-                  controller: _notes,
-                  minLines: 2,
-                  maxLines: 5,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(labelText: 'Notes (optional)', hintText: 'Food preference, vehicle number…'),
-                ),
-              ]),
+              ),
+              FormSection(
+                title: 'Notes',
+                icon: Icons.notes_rounded,
+                children: [
+                  TextFormField(
+                    controller: _notes,
+                    minLines: 2,
+                    maxLines: 5,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (optional)',
+                      hintText: 'Food preference, vehicle number…',
+                    ),
+                  ),
+                ],
+              ),
               AsyncButton(label: _isEdit ? 'Save changes' : 'Register tenant', onPressed: _save),
             ],
           ),
@@ -423,8 +473,8 @@ class _DocTile extends StatelessWidget {
         picked != null
             ? '${isPdf ? 'PDF' : 'Photo'} selected · tap to change'
             : hasExisting
-                ? '$label saved · tap to replace'
-                : 'Upload $label (photo or PDF)',
+            ? '$label saved · tap to replace'
+            : 'Upload $label (photo or PDF)',
       ),
     );
   }

@@ -14,7 +14,10 @@ class AppCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(padding: padding, child: child),
+      ),
     );
   }
 }
@@ -86,15 +89,20 @@ class MetricTile extends StatelessWidget {
                 Container(
                   width: 32,
                   height: 32,
-                  decoration: BoxDecoration(color: tone.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(Radii.sm)),
+                  decoration: BoxDecoration(
+                    color: tone.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(Radii.sm),
+                  ),
                   child: Icon(icon, size: 18, color: tone),
                 ),
                 const SizedBox(width: Gap.sm),
                 Expanded(
-                  child: Text(label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: t.labelMedium?.copyWith(color: AppColors.textSecondary)),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.labelMedium?.copyWith(color: AppColors.textSecondary),
+                  ),
                 ),
               ],
             ),
@@ -112,10 +120,12 @@ class MetricTile extends StatelessWidget {
             ),
             if (caption != null) ...[
               const SizedBox(height: 2),
-              Text(caption!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
+              Text(
+                caption!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+              ),
             ],
           ],
         ),

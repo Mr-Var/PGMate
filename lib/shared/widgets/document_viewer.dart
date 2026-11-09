@@ -53,7 +53,12 @@ class DocumentViewerScreen extends ConsumerWidget {
           }
           return InteractiveViewer(
             maxScale: 5,
-            child: Center(child: Image.file(f, errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: Colors.white))),
+            child: Center(
+              child: Image.file(
+                f,
+                errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: Colors.white),
+              ),
+            ),
           );
         },
       ),

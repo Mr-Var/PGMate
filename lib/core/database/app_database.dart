@@ -50,9 +50,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   static QueryExecutor _openConnection() => driftDatabase(
-        name: fileName,
-        native: DriftNativeOptions(databasePath: () async => (await databaseFile()).path),
-      );
+    name: fileName,
+    native: DriftNativeOptions(databasePath: () async => (await databaseFile()).path),
+  );
 
   /// Bump this and add a step in [migration] whenever the schema changes.
   @override
@@ -60,18 +60,18 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-          await _createIntegrityRules();
-        },
-        onUpgrade: (m, from, to) async {
-          // Future migrations go here, e.g.
-          // if (from < 2) { await m.addColumn(tenants, tenants.newColumn); }
-        },
-        beforeOpen: (details) async {
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
+    onCreate: (m) async {
+      await m.createAll();
+      await _createIntegrityRules();
+    },
+    onUpgrade: (m, from, to) async {
+      // Future migrations go here, e.g.
+      // if (from < 2) { await m.addColumn(tenants, tenants.newColumn); }
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 
   /// Rules Drift cannot express declaratively: partial unique indexes and
   /// triggers that protect financial history.

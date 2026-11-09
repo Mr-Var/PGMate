@@ -39,43 +39,72 @@ class BackupScreen extends ConsumerWidget {
               color: stale ? AppColors.warningSoft : AppColors.successSoft,
               borderRadius: BorderRadius.circular(Radii.lg),
             ),
-            child: Row(children: [
-              Icon(stale ? Icons.warning_amber_rounded : Icons.verified_user_outlined, color: stale ? AppColors.warning : AppColors.success),
-              const SizedBox(width: Gap.md),
-              Expanded(
-                child: Text(
-                  lastAt == null
-                      ? 'No backup yet. All data lives only on this phone. If it is lost or reset, the data is gone.'
-                      : 'Last backup ${Dates.relativeDays(lastAt).toLowerCase()} (${Dates.short(lastAt)}).'
-                          '${stale ? ' Back up at least once a week.' : ''}',
-                  style: t.bodyMedium?.copyWith(color: stale ? AppColors.warning : AppColors.success, fontWeight: FontWeight.w500),
+            child: Row(
+              children: [
+                Icon(
+                  stale ? Icons.warning_amber_rounded : Icons.verified_user_outlined,
+                  color: stale ? AppColors.warning : AppColors.success,
                 ),
-              ),
-            ]),
+                const SizedBox(width: Gap.md),
+                Expanded(
+                  child: Text(
+                    lastAt == null
+                        ? 'No backup yet. All data lives only on this phone. If it is lost or reset, the data is gone.'
+                        : 'Last backup ${Dates.relativeDays(lastAt).toLowerCase()} (${Dates.short(lastAt)}).'
+                              '${stale ? ' Back up at least once a week.' : ''}',
+                    style: t.bodyMedium?.copyWith(
+                      color: stale ? AppColors.warning : AppColors.success,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SectionHeader(title: 'Create backup'),
           AppCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text('Includes every tenant, payment, invoice, expense and all photos and documents. '
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Includes every tenant, payment, invoice, expense and all photos and documents. '
                   'The file is encrypted with a password you choose.',
-                  style: t.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-              const SizedBox(height: Gap.lg),
-              AsyncButton(label: 'Back up now', icon: Icons.cloud_download_outlined, onPressed: () => _create(context, ref)),
-            ]),
+                  style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: Gap.lg),
+                AsyncButton(
+                  label: 'Back up now',
+                  icon: Icons.cloud_download_outlined,
+                  onPressed: () => _create(context, ref),
+                ),
+              ],
+            ),
           ),
           const SectionHeader(title: 'Restore'),
           AppCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text('Replaces all data on this phone with a backup file. The backup is checked first; '
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Replaces all data on this phone with a backup file. The backup is checked first; '
                   'nothing changes unless it is valid and you confirm with your PIN.',
-                  style: t.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-              const SizedBox(height: Gap.lg),
-              AsyncButton(label: 'Restore from file', icon: Icons.restore_rounded, outlined: true, onPressed: () => _restore(context, ref)),
-            ]),
+                  style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: Gap.lg),
+                AsyncButton(
+                  label: 'Restore from file',
+                  icon: Icons.restore_rounded,
+                  outlined: true,
+                  onPressed: () => _restore(context, ref),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: Gap.lg),
-          Text('Keep backups somewhere other than this phone: Google Drive, email to yourself, or a computer.',
-              style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
+          Text(
+            'Keep backups somewhere other than this phone: Google Drive, email to yourself, or a computer.',
+            style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+          ),
         ],
       ),
     );
@@ -93,37 +122,44 @@ class BackupScreen extends ConsumerWidget {
           title: Text(confirm ? 'Set backup password' : 'Backup password'),
           content: Form(
             key: key,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              if (confirm)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: Gap.md),
-                  child: Text('You need this password to restore. It cannot be recovered if forgotten.',
-                      style: TextStyle(color: AppColors.textSecondary)),
-                ),
-              TextFormField(
-                controller: a,
-                obscureText: hide,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  suffixIcon: IconButton(
-                    tooltip: hide ? 'Show password' : 'Hide password',
-                    icon: Icon(hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                    onPressed: () => setState(() => hide = !hide),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (confirm)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: Gap.md),
+                    child: Text(
+                      'You need this password to restore. It cannot be recovered if forgotten.',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
                   ),
-                ),
-                validator: (v) => confirm ? BackupService.validatePassword(v ?? '') : ((v ?? '').isEmpty ? 'Enter the password' : null),
-              ),
-              if (confirm) ...[
-                const SizedBox(height: Gap.md),
                 TextFormField(
-                  controller: b,
+                  controller: a,
                   obscureText: hide,
-                  decoration: const InputDecoration(labelText: 'Repeat password'),
-                  validator: (v) => v != a.text ? 'Passwords do not match' : null,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    suffixIcon: IconButton(
+                      tooltip: hide ? 'Show password' : 'Hide password',
+                      icon: Icon(hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                      onPressed: () => setState(() => hide = !hide),
+                    ),
+                  ),
+                  validator: (v) => confirm
+                      ? BackupService.validatePassword(v ?? '')
+                      : ((v ?? '').isEmpty ? 'Enter the password' : null),
                 ),
+                if (confirm) ...[
+                  const SizedBox(height: Gap.md),
+                  TextFormField(
+                    controller: b,
+                    obscureText: hide,
+                    decoration: const InputDecoration(labelText: 'Repeat password'),
+                    validator: (v) => v != a.text ? 'Passwords do not match' : null,
+                  ),
+                ],
               ],
-            ]),
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
@@ -150,28 +186,41 @@ class BackupScreen extends ConsumerWidget {
     final where = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.sm),
-            child: Text('Backup ready · ${(bytes.length / 1024).toStringAsFixed(0)} KB · ${manifest.tenants} tenants',
-                style: Theme.of(ctx).textTheme.titleMedium),
-          ),
-          ListTile(leading: const Icon(Icons.save_alt_rounded), title: const Text('Save to phone'), onTap: () => Navigator.pop(ctx, 'save')),
-          ListTile(
-            leading: const Icon(Icons.ios_share_rounded),
-            title: const Text('Share (Drive, email, WhatsApp)'),
-            onTap: () => Navigator.pop(ctx, 'share'),
-          ),
-          const SizedBox(height: Gap.sm),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.sm),
+              child: Text(
+                'Backup ready · ${(bytes.length / 1024).toStringAsFixed(0)} KB · ${manifest.tenants} tenants',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.save_alt_rounded),
+              title: const Text('Save to phone'),
+              onTap: () => Navigator.pop(ctx, 'save'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.ios_share_rounded),
+              title: const Text('Share (Drive, email, WhatsApp)'),
+              onTap: () => Navigator.pop(ctx, 'share'),
+            ),
+            const SizedBox(height: Gap.sm),
+          ],
+        ),
       ),
     );
     if (where == 'save') {
       final uri = await FilePicker.saveFile(fileName: name, bytes: bytes);
-      if (context.mounted) showAppSnack(context, uri == null ? 'Not saved' : 'Backup saved as $name', error: uri == null);
+      if (context.mounted) {
+        showAppSnack(context, uri == null ? 'Not saved' : 'Backup saved as $name', error: uri == null);
+      }
     } else if (where == 'share') {
       final f = await ref.read(exportServiceProvider).writeTemp(name, bytes);
-      await ref.read(exportServiceProvider).shareFile(f, mime: 'application/octet-stream', text: 'PG Manager backup ${Dates.short(manifest.createdAt)}');
+      await ref
+          .read(exportServiceProvider)
+          .shareFile(f, mime: 'application/octet-stream', text: 'PG Manager backup ${Dates.short(manifest.createdAt)}');
     }
   }
 
@@ -197,7 +246,8 @@ class BackupScreen extends ConsumerWidget {
     final go = await confirmAction(
       context,
       title: 'Replace all current data?',
-      message: 'Backup of “${m.pgName}” from ${Dates.short(m.createdAt)}: ${m.tenants} tenants, ${m.payments} payments, '
+      message:
+          'Backup of “${m.pgName}” from ${Dates.short(m.createdAt)}: ${m.tenants} tenants, ${m.payments} payments, '
           '${m.files} files.\n\nEverything on this phone will be replaced. A safety copy of the current data is kept in the app folder.',
       confirmLabel: 'Replace data',
       destructive: true,
@@ -209,7 +259,11 @@ class BackupScreen extends ConsumerWidget {
       title: 'Confirm restore',
       message: 'Enter your PIN to replace the data.',
       length: AuthService.pinLength,
-      verify: (pin) async => switch (await auth.verifyPin(pin)) { PinOk() => true, PinWrong() => false, PinLockedOut() => null },
+      verify: (pin) async => switch (await auth.verifyPin(pin)) {
+        PinOk() => true,
+        PinWrong() => false,
+        PinLockedOut() => null,
+      },
     );
     if (!pinOk || !context.mounted) return;
 

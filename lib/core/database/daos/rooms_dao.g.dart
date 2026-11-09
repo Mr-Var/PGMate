@@ -15,14 +15,10 @@ mixin _$RoomsDaoMixin on DatabaseAccessor<AppDatabase> {
 class RoomsDaoManager {
   final _$RoomsDaoMixin _db;
   RoomsDaoManager(this._db);
-  $$RoomsTableTableManager get rooms =>
-      $$RoomsTableTableManager(_db.attachedDatabase, _db.rooms);
-  $$BedsTableTableManager get beds =>
-      $$BedsTableTableManager(_db.attachedDatabase, _db.beds);
-  $$TenantsTableTableManager get tenants =>
-      $$TenantsTableTableManager(_db.attachedDatabase, _db.tenants);
+  $$RoomsTableTableManager get rooms => $$RoomsTableTableManager(_db.attachedDatabase, _db.rooms);
+  $$BedsTableTableManager get beds => $$BedsTableTableManager(_db.attachedDatabase, _db.beds);
+  $$TenantsTableTableManager get tenants => $$TenantsTableTableManager(_db.attachedDatabase, _db.tenants);
   $$AllocationsTableTableManager get allocations =>
       $$AllocationsTableTableManager(_db.attachedDatabase, _db.allocations);
-  $$AuditLogsTableTableManager get auditLogs =>
-      $$AuditLogsTableTableManager(_db.attachedDatabase, _db.auditLogs);
+  $$AuditLogsTableTableManager get auditLogs => $$AuditLogsTableTableManager(_db.attachedDatabase, _db.auditLogs);
 }

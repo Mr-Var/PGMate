@@ -30,8 +30,7 @@ class PinPad extends StatefulWidget {
 
 class PinPadState extends State<PinPad> with SingleTickerProviderStateMixin {
   String _pin = '';
-  late final AnimationController _shake =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 360));
+  late final AnimationController _shake = AnimationController(vsync: this, duration: const Duration(milliseconds: 360));
 
   @override
   void didUpdateWidget(PinPad oldWidget) {
@@ -151,7 +150,10 @@ class PinPadState extends State<PinPad> with SingleTickerProviderStateMixin {
             width: 64,
             height: 64,
             child: Center(
-              child: Text(digit, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w500, color: fg)),
+              child: Text(
+                digit,
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w500, color: fg),
+              ),
             ),
           ),
         ),

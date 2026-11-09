@@ -48,16 +48,18 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
   }) {
     if (amountPaise <= 0) throw RuleException('Amount must be more than ₹0.');
     return transaction(() async {
-      final id = await into(expenses).insert(ExpensesCompanion.insert(
-        title: title.trim(),
-        category: category,
-        amountPaise: amountPaise,
-        expenseDate: Dates.today(date),
-        paymentMethod: method,
-        vendor: Value(_n(vendor)),
-        billPath: Value(billPath),
-        notes: Value(_n(notes)),
-      ));
+      final id = await into(expenses).insert(
+        ExpensesCompanion.insert(
+          title: title.trim(),
+          category: category,
+          amountPaise: amountPaise,
+          expenseDate: Dates.today(date),
+          paymentMethod: method,
+          vendor: Value(_n(vendor)),
+          billPath: Value(billPath),
+          notes: Value(_n(notes)),
+        ),
+      );
       await db.settingsDao.log('expense', id, 'create', '${category.name} ${Money.format(amountPaise)}');
       return id;
     });
@@ -66,8 +68,9 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
   /// Expenses are never deleted; a voided expense is excluded from totals.
   Future<void> voidExpense(int id, String reason) {
     return transaction(() async {
-      await (update(expenses)..where((e) => e.id.equals(id)))
-          .write(ExpensesCompanion(isVoided: const Value(true), voidReason: Value(reason)));
+      await (update(expenses)..where((e) => e.id.equals(id))).write(
+        ExpensesCompanion(isVoided: const Value(true), voidReason: Value(reason)),
+      );
       await db.settingsDao.log('expense', id, 'void', reason);
     });
   }
@@ -88,10 +91,16 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
          GROUP BY category ORDER BY total DESC''',
       variables: [Variable.withDateTime(range.start), Variable.withDateTime(range.end)],
       readsFrom: {expenses},
-    ).watch().map((rows) => [
-          for (final r in rows)
-            CategoryTotal(ExpenseCategory.values.byName(r.read<String>('category')), r.read<int>('total'), r.read<int>('n')),
-        ]);
+    ).watch().map(
+      (rows) => [
+        for (final r in rows)
+          CategoryTotal(
+            ExpenseCategory.values.byName(r.read<String>('category')),
+            r.read<int>('total'),
+            r.read<int>('n'),
+          ),
+      ],
+    );
   }
 
   // -------------------------------------------------------------- Complaints
@@ -105,14 +114,16 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
     List<String> images = const [],
   }) {
     return transaction(() async {
-      final id = await into(complaints).insert(ComplaintsCompanion.insert(
-        tenantId: Value(tenantId),
-        roomId: Value(roomId),
-        category: category,
-        description: description.trim(),
-        priority: priority,
-        imagePaths: Value(jsonEncode(images)),
-      ));
+      final id = await into(complaints).insert(
+        ComplaintsCompanion.insert(
+          tenantId: Value(tenantId),
+          roomId: Value(roomId),
+          category: category,
+          description: description.trim(),
+          priority: priority,
+          imagePaths: Value(jsonEncode(images)),
+        ),
+      );
       await db.settingsDao.log('complaint', id, 'create', category);
       return id;
     });
@@ -145,14 +156,16 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
         );
       }
       final now = DateTime.now();
-      await (update(complaints)..where((x) => x.id.equals(id))).write(ComplaintsCompanion(
-        status: Value(status),
-        resolutionNotes: resolutionNotes == null ? const Value.absent() : Value(_n(resolutionNotes)),
-        expenseId: Value(expenseId),
-        resolvedAt: status == ComplaintStatus.resolved && c.resolvedAt == null ? Value(now) : const Value.absent(),
-        closedAt: status == ComplaintStatus.closed ? Value(now) : const Value.absent(),
-        updatedAt: Value(now),
-      ));
+      await (update(complaints)..where((x) => x.id.equals(id))).write(
+        ComplaintsCompanion(
+          status: Value(status),
+          resolutionNotes: resolutionNotes == null ? const Value.absent() : Value(_n(resolutionNotes)),
+          expenseId: Value(expenseId),
+          resolvedAt: status == ComplaintStatus.resolved && c.resolvedAt == null ? Value(now) : const Value.absent(),
+          closedAt: status == ComplaintStatus.closed ? Value(now) : const Value.absent(),
+          updatedAt: Value(now),
+        ),
+      );
       await db.settingsDao.log('complaint', id, 'status', status.name);
     });
   }
@@ -161,8 +174,9 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
     return transaction(() async {
       final c = await (select(complaints)..where((x) => x.id.equals(id))).getSingle();
       final all = [...(jsonDecode(c.imagePaths) as List).cast<String>(), ...paths];
-      await (update(complaints)..where((x) => x.id.equals(id)))
-          .write(ComplaintsCompanion(imagePaths: Value(jsonEncode(all)), updatedAt: Value(DateTime.now())));
+      await (update(complaints)..where((x) => x.id.equals(id))).write(
+        ComplaintsCompanion(imagePaths: Value(jsonEncode(all)), updatedAt: Value(DateTime.now())),
+      );
     });
   }
 
@@ -171,24 +185,31 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
       leftOuterJoin(tenants, tenants.id.equalsExp(complaints.tenantId)),
       leftOuterJoin(rooms, rooms.id.equalsExp(complaints.roomId)),
       leftOuterJoin(expenses, expenses.id.equalsExp(complaints.expenseId)),
-    ])
-      ..orderBy([OrderingTerm.desc(complaints.createdAt)]);
+    ])..orderBy([OrderingTerm.desc(complaints.createdAt)]);
     if (status != null) q.where(complaints.status.equalsValue(status));
     if (tenantId != null) q.where(complaints.tenantId.equals(tenantId));
-    return q.watch().map((rows) => [
-          for (final r in rows)
-            ComplaintView(
-              r.readTable(complaints),
-              r.readTableOrNull(tenants)?.fullName,
-              r.readTableOrNull(rooms)?.roomNumber,
-              r.readTableOrNull(expenses),
-            ),
-        ]);
+    return q.watch().map(
+      (rows) => [
+        for (final r in rows)
+          ComplaintView(
+            r.readTable(complaints),
+            r.readTableOrNull(tenants)?.fullName,
+            r.readTableOrNull(rooms)?.roomNumber,
+            r.readTableOrNull(expenses),
+          ),
+      ],
+    );
   }
 
   // ----------------------------------------------------------------- Notices
 
-  Future<int> saveNotice({int? id, required String title, required String body, required String category, required DateTime publishDate}) {
+  Future<int> saveNotice({
+    int? id,
+    required String title,
+    required String body,
+    required String category,
+    required DateTime publishDate,
+  }) {
     return transaction(() async {
       final c = NoticesCompanion(
         title: Value(title.trim()),
@@ -208,9 +229,9 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
   }
 
   Future<void> deleteNotice(int id) => transaction(() async {
-        await (delete(notices)..where((n) => n.id.equals(id))).go();
-        await db.settingsDao.log('notice', id, 'delete');
-      });
+    await (delete(notices)..where((n) => n.id.equals(id))).go();
+    await db.settingsDao.log('notice', id, 'delete');
+  });
 
   Stream<List<Notice>> watchNotices() =>
       (select(notices)..orderBy([(n) => OrderingTerm.desc(n.publishDate), (n) => OrderingTerm.desc(n.id)])).watch();
@@ -243,22 +264,33 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
   Future<int> copyPreviousWeek(DateTime weekStart) {
     return transaction(() async {
       final start = Dates.today(weekStart);
-      final prev = await (select(menus)
-            ..where((m) =>
-                m.menuDate.isBiggerOrEqualValue(start.subtract(const Duration(days: 7))) &
-                m.menuDate.isSmallerThanValue(start)))
-          .get();
+      final prev =
+          await (select(menus)..where(
+                (m) =>
+                    m.menuDate.isBiggerOrEqualValue(start.subtract(const Duration(days: 7))) &
+                    m.menuDate.isSmallerThanValue(start),
+              ))
+              .get();
       for (final m in prev) {
-        await saveMenu(m.menuDate.add(const Duration(days: 7)), breakfast: m.breakfast, lunch: m.lunch, dinner: m.dinner);
+        await saveMenu(
+          m.menuDate.add(const Duration(days: 7)),
+          breakfast: m.breakfast,
+          lunch: m.lunch,
+          dinner: m.dinner,
+        );
       }
       return prev.length;
     });
   }
 
-  Stream<List<Menu>> watchMenus(DateTime from, DateTime to) => (select(menus)
-        ..where((m) => m.menuDate.isBiggerOrEqualValue(Dates.today(from)) & m.menuDate.isSmallerThanValue(Dates.today(to)))
-        ..orderBy([(m) => OrderingTerm.asc(m.menuDate)]))
-      .watch();
+  Stream<List<Menu>> watchMenus(DateTime from, DateTime to) =>
+      (select(menus)
+            ..where(
+              (m) =>
+                  m.menuDate.isBiggerOrEqualValue(Dates.today(from)) & m.menuDate.isSmallerThanValue(Dates.today(to)),
+            )
+            ..orderBy([(m) => OrderingTerm.asc(m.menuDate)]))
+          .watch();
 
   static String? _n(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
 }

@@ -63,9 +63,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           .billingDao
           .previewCheckout(widget.tenantId, _date!, deductionsPaise: Money.parseRupees(_deductions.text) ?? 0)
           .catchError((Object e) {
-        if (mounted) setState(() => _error = e is RuleException ? e.message : '$e');
-        throw e;
-      });
+            if (mounted) setState(() => _error = e is RuleException ? e.message : '$e');
+            throw e;
+          });
     });
   }
 
@@ -76,12 +76,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       title: 'Confirm checkout',
       message: 'Checkout settles money and frees the bed. Enter your PIN.',
       length: AuthService.pinLength,
-      verify: (pin) async => switch (await auth.verifyPin(pin)) { PinOk() => true, PinWrong() => false, PinLockedOut() => null },
+      verify: (pin) async => switch (await auth.verifyPin(pin)) {
+        PinOk() => true,
+        PinWrong() => false,
+        PinLockedOut() => null,
+      },
     );
     if (!pinOk || !mounted) return;
     CheckoutResult? result;
     final ok = await runGuarded(context, () async {
-      result = await ref.read(databaseProvider).billingDao.checkout(
+      result = await ref
+          .read(databaseProvider)
+          .billingDao
+          .checkout(
             widget.tenantId,
             _date!,
             deductionsPaise: Money.parseRupees(_deductions.text) ?? 0,
@@ -161,14 +168,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 TextField(
                   controller: _deductionNote,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(labelText: 'Deduction reason (optional)', hintText: 'e.g. Broken chair'),
+                  decoration: const InputDecoration(
+                    labelText: 'Deduction reason (optional)',
+                    hintText: 'e.g. Broken chair',
+                  ),
                 ),
                 const SectionHeader(title: 'Settlement'),
                 FutureBuilder<CheckoutPreview>(
                   future: _preview,
                   builder: (context, snap) {
                     if (_error != null) {
-                      return AppCard(child: Text(_error!, style: const TextStyle(color: AppColors.danger)));
+                      return AppCard(
+                        child: Text(_error!, style: const TextStyle(color: AppColors.danger)),
+                      );
                     }
                     final p = snap.data;
                     if (p == null) return const SkeletonBox(height: 260, radius: Radii.lg);
@@ -178,49 +190,64 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         'Final month rent',
                         p.finalMonthRentPaise - p.finalMonthInvoiced,
                         '${p.daysInFinalMonth} days of ${Dates.monthYear(p.checkoutDate)} = ${Money.format(p.finalMonthRentPaise)}'
-                            '${p.finalMonthInvoiced > 0 ? ', invoiced ${Money.format(p.finalMonthInvoiced)}' : ''}'
+                            '${p.finalMonthInvoiced > 0 ? ', invoiced ${Money.format(p.finalMonthInvoiced)}' : ''}',
                       ),
                       if (p.deductionsPaise > 0) ('Deductions', p.deductionsPaise, null),
                       ('Advance credit', -p.creditPaise, null),
                       ('Security deposit', -p.depositPaise, null),
                     ];
-                    return Column(children: [
-                      AppCard(
-                        child: Column(children: [
-                          for (final (i, r) in rows.indexed) ...[
-                            if (i > 0) const Divider(height: Gap.xl),
-                            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Expanded(
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text(r.$1, style: t.bodyMedium),
-                                  if (r.$3 != null) Text(r.$3!, style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
-                                ]),
-                              ),
-                              Text(
-                                '${r.$2 < 0 ? '−' : r.$2 > 0 ? '+' : ''}${Money.format(r.$2.abs())}',
-                                style: t.titleSmall?.copyWith(
-                                  fontFeatures: AppTheme.tabular,
-                                  color: r.$2 < 0 ? AppColors.success : AppColors.textPrimary,
+                    return Column(
+                      children: [
+                        AppCard(
+                          child: Column(
+                            children: [
+                              for (final (i, r) in rows.indexed) ...[
+                                if (i > 0) const Divider(height: Gap.xl),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(r.$1, style: t.bodyMedium),
+                                          if (r.$3 != null)
+                                            Text(r.$3!, style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '${r.$2 < 0
+                                          ? '−'
+                                          : r.$2 > 0
+                                          ? '+'
+                                          : ''}${Money.format(r.$2.abs())}',
+                                      style: t.titleSmall?.copyWith(
+                                        fontFeatures: AppTheme.tabular,
+                                        color: r.$2 < 0 ? AppColors.success : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ]),
-                          ],
-                        ]),
-                      ),
-                      const SizedBox(height: Gap.md),
-                      SettlementBanner(amountPaise: p.settlementPaise),
-                      if (p.settlementPaise > 0) ...[
-                        const SizedBox(height: Gap.lg),
-                        SegmentedButton<PaymentMethod>(
-                          segments: const [
-                            ButtonSegment(value: PaymentMethod.cash, label: Text('Refund in cash')),
-                            ButtonSegment(value: PaymentMethod.upi, label: Text('Refund by UPI')),
-                          ],
-                          selected: {_refundMethod},
-                          onSelectionChanged: (s) => setState(() => _refundMethod = s.first),
+                              ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(height: Gap.md),
+                        SettlementBanner(amountPaise: p.settlementPaise),
+                        if (p.settlementPaise > 0) ...[
+                          const SizedBox(height: Gap.lg),
+                          SegmentedButton<PaymentMethod>(
+                            segments: const [
+                              ButtonSegment(value: PaymentMethod.cash, label: Text('Refund in cash')),
+                              ButtonSegment(value: PaymentMethod.upi, label: Text('Refund by UPI')),
+                            ],
+                            selected: {_refundMethod},
+                            onSelectionChanged: (s) => setState(() => _refundMethod = s.first),
+                          ),
+                        ],
                       ],
-                    ]);
+                    );
                   },
                 ),
                 const SizedBox(height: Gap.lg),
@@ -232,7 +259,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   decoration: const InputDecoration(labelText: 'Checkout notes (optional)'),
                 ),
                 const SizedBox(height: Gap.xl),
-                AsyncButton(label: 'Confirm checkout', icon: Icons.logout_rounded, danger: true, onPressed: () => _confirm(name)),
+                AsyncButton(
+                  label: 'Confirm checkout',
+                  icon: Icons.logout_rounded,
+                  danger: true,
+                  onPressed: () => _confirm(name),
+                ),
               ],
             ),
     );

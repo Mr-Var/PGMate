@@ -53,6 +53,7 @@ class _TenantsScreenState extends ConsumerState<TenantsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: () => context.push('/tenants/new'),
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Add tenant'),
@@ -119,8 +120,8 @@ class _TenantsScreenState extends ConsumerState<TenantsScreen> {
                     message: searching
                         ? 'No tenant matches “${q.search.trim()}”. Check the spelling or the filter.'
                         : q.filter == TenantFilter.current
-                            ? 'Register your first tenant to assign a bed, bill rent and record payments.'
-                            : 'Nobody matches this filter yet.',
+                        ? 'Register your first tenant to assign a bed, bill rent and record payments.'
+                        : 'Nobody matches this filter yet.',
                     actionLabel: searching || q.filter != TenantFilter.current ? null : 'Add tenant',
                     onAction: () => context.push('/tenants/new'),
                   );
@@ -207,8 +208,11 @@ class TenantTile extends StatelessWidget {
               else
                 Text('Paid up', style: t.labelMedium?.copyWith(color: AppColors.success)),
               const SizedBox(height: 4),
-              StatusPill(label: item.overdue ? 'Overdue' : tenant.status.label, color: item.overdue ? AppColors.danger : color,
-                  background: item.overdue ? AppColors.dangerSoft : bg),
+              StatusPill(
+                label: item.overdue ? 'Overdue' : tenant.status.label,
+                color: item.overdue ? AppColors.danger : color,
+                background: item.overdue ? AppColors.dangerSoft : bg,
+              ),
             ],
           ),
         ],
@@ -218,8 +222,8 @@ class TenantTile extends StatelessWidget {
 }
 
 (Color, Color) statusColors(TenantStatus s) => switch (s) {
-      TenantStatus.active => (AppColors.success, AppColors.successSoft),
-      TenantStatus.noticeGiven => (AppColors.warning, AppColors.warningSoft),
-      TenantStatus.newTenant => (AppColors.info, AppColors.infoSoft),
-      _ => (AppColors.textSecondary, AppColors.neutralSoft),
-    };
+  TenantStatus.active => (AppColors.success, AppColors.successSoft),
+  TenantStatus.noticeGiven => (AppColors.warning, AppColors.warningSoft),
+  TenantStatus.newTenant => (AppColors.info, AppColors.infoSoft),
+  _ => (AppColors.textSecondary, AppColors.neutralSoft),
+};

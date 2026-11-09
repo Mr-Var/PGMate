@@ -66,7 +66,11 @@ class _Group extends StatelessWidget {
               subtitle: Text(item.$3),
               trailing: item.$4 != null
                   ? const Icon(Icons.chevron_right_rounded)
-                  : const StatusPill(label: 'Coming soon', color: AppColors.textSecondary, background: AppColors.neutralSoft),
+                  : const StatusPill(
+                      label: 'Coming soon',
+                      color: AppColors.textSecondary,
+                      background: AppColors.neutralSoft,
+                    ),
               onTap: item.$4 == null ? null : () => context.push(item.$4!),
             ),
           ],

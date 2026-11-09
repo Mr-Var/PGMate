@@ -17,14 +17,14 @@ const noticeCategories = ['General', 'Rent', 'Maintenance', 'Water / power cut',
 final noticesProvider = StreamProvider<List<Notice>>((ref) => ref.watch(databaseProvider).opsDao.watchNotices());
 
 IconData noticeIcon(String c) => switch (c) {
-      'Rent' => Icons.currency_rupee_rounded,
-      'Maintenance' => Icons.build_outlined,
-      'Water / power cut' => Icons.power_off_outlined,
-      'Rules' => Icons.gavel_rounded,
-      'Event' => Icons.celebration_outlined,
-      'Food' => Icons.restaurant_outlined,
-      _ => Icons.campaign_outlined,
-    };
+  'Rent' => Icons.currency_rupee_rounded,
+  'Maintenance' => Icons.build_outlined,
+  'Water / power cut' => Icons.power_off_outlined,
+  'Rules' => Icons.gavel_rounded,
+  'Event' => Icons.celebration_outlined,
+  'Food' => Icons.restaurant_outlined,
+  _ => Icons.campaign_outlined,
+};
 
 String noticeMessage(Notice n, String? pgName) =>
     '*${pgName == null ? '' : '$pgName · '}${n.title}*\n${Dates.short(n.publishDate)}\n\n${n.body}';
@@ -40,6 +40,7 @@ class NoticesScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Notices')),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: () => context.push('/more/notices/new'),
         icon: const Icon(Icons.add_rounded),
         label: const Text('New notice'),
@@ -64,21 +65,40 @@ class NoticesScreen extends ConsumerWidget {
                   final scheduled = n.publishDate.isAfter(today);
                   return AppCard(
                     onTap: () => context.push('/more/notices/${n.id}'),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Icon(noticeIcon(n.category), size: 18, color: AppColors.primary),
-                        const SizedBox(width: Gap.sm),
-                        Expanded(child: Text(n.category, style: t.labelMedium?.copyWith(color: AppColors.textSecondary))),
-                        if (scheduled)
-                          StatusPill(label: 'From ${Dates.dayMonth(n.publishDate)}', color: AppColors.info, background: AppColors.infoSoft)
-                        else
-                          Text(Dates.dayMonth(n.publishDate), style: t.labelMedium?.copyWith(color: AppColors.textMuted)),
-                      ]),
-                      const SizedBox(height: Gap.sm),
-                      Text(n.title, style: t.titleSmall),
-                      const SizedBox(height: 2),
-                      Text(n.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-                    ]),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(noticeIcon(n.category), size: 18, color: AppColors.primary),
+                            const SizedBox(width: Gap.sm),
+                            Expanded(
+                              child: Text(n.category, style: t.labelMedium?.copyWith(color: AppColors.textSecondary)),
+                            ),
+                            if (scheduled)
+                              StatusPill(
+                                label: 'From ${Dates.dayMonth(n.publishDate)}',
+                                color: AppColors.info,
+                                background: AppColors.infoSoft,
+                              )
+                            else
+                              Text(
+                                Dates.dayMonth(n.publishDate),
+                                style: t.labelMedium?.copyWith(color: AppColors.textMuted),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: Gap.sm),
+                        Text(n.title, style: t.titleSmall),
+                        const SizedBox(height: 2),
+                        Text(
+                          n.body,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),
@@ -112,13 +132,10 @@ class _NoticeFormScreenState extends ConsumerState<NoticeFormScreen> {
 
   Future<int?> _save() async {
     if (!_formKey.currentState!.validate()) return null;
-    return ref.read(databaseProvider).opsDao.saveNotice(
-          id: widget.noticeId,
-          title: _title.text,
-          body: _body.text,
-          category: _category,
-          publishDate: _date,
-        );
+    return ref
+        .read(databaseProvider)
+        .opsDao
+        .saveNotice(id: widget.noticeId, title: _title.text, body: _body.text, category: _category, publishDate: _date);
   }
 
   @override
@@ -143,7 +160,13 @@ class _NoticeFormScreenState extends ConsumerState<NoticeFormScreen> {
               tooltip: 'Delete notice',
               icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
               onPressed: () async {
-                if (!await confirmAction(context, title: 'Delete notice?', message: 'This removes it from the notice history.', destructive: true, confirmLabel: 'Delete')) {
+                if (!await confirmAction(
+                  context,
+                  title: 'Delete notice?',
+                  message: 'This removes it from the notice history.',
+                  destructive: true,
+                  confirmLabel: 'Delete',
+                )) {
                   return;
                 }
                 await ref.read(databaseProvider).opsDao.deleteNotice(widget.noticeId!);
@@ -157,16 +180,20 @@ class _NoticeFormScreenState extends ConsumerState<NoticeFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
           children: [
-            Wrap(spacing: Gap.sm, runSpacing: Gap.sm, children: [
-              for (final c in noticeCategories)
-                ChoiceChip(
-                  avatar: Icon(noticeIcon(c), size: 18),
-                  label: Text(c),
-                  selected: _category == c,
-                  showCheckmark: false,
-                  onSelected: (_) => setState(() => _category = c),
-                ),
-            ]),
+            Wrap(
+              spacing: Gap.sm,
+              runSpacing: Gap.sm,
+              children: [
+                for (final c in noticeCategories)
+                  ChoiceChip(
+                    avatar: Icon(noticeIcon(c), size: 18),
+                    label: Text(c),
+                    selected: _category == c,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() => _category = c),
+                  ),
+              ],
+            ),
             const SizedBox(height: Gap.xl),
             TextFormField(
               controller: _title,
@@ -193,7 +220,14 @@ class _NoticeFormScreenState extends ConsumerState<NoticeFormScreen> {
                 final id = await _save();
                 if (id == null) return;
                 final pg = ref.read(pgProfileProvider).value;
-                final n = Notice(id: id, title: _title.text.trim(), body: _body.text.trim(), category: _category, publishDate: _date, createdAt: DateTime.now());
+                final n = Notice(
+                  id: id,
+                  title: _title.text.trim(),
+                  body: _body.text.trim(),
+                  category: _category,
+                  publishDate: _date,
+                  createdAt: DateTime.now(),
+                );
                 await ref.read(exportServiceProvider).whatsapp(noticeMessage(n, pg?.name));
                 if (context.mounted) context.pop();
               },

@@ -17,6 +17,7 @@ class Complaints extends Table {
   TextColumn get description => text().withLength(min: 1, max: 2000)();
   TextColumn get priority => textEnum<ComplaintPriority>()();
   TextColumn get status => textEnum<ComplaintStatus>().withDefault(Constant(ComplaintStatus.open.name))();
+
   /// JSON array of private-storage relative paths.
   TextColumn get imagePaths => text().withDefault(const Constant('[]'))();
   TextColumn get resolutionNotes => text().nullable()();

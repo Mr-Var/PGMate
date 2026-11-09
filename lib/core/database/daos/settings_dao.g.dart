@@ -13,10 +13,8 @@ mixin _$SettingsDaoMixin on DatabaseAccessor<AppDatabase> {
 class SettingsDaoManager {
   final _$SettingsDaoMixin _db;
   SettingsDaoManager(this._db);
-  $$PgProfilesTableTableManager get pgProfiles =>
-      $$PgProfilesTableTableManager(_db.attachedDatabase, _db.pgProfiles);
+  $$PgProfilesTableTableManager get pgProfiles => $$PgProfilesTableTableManager(_db.attachedDatabase, _db.pgProfiles);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db.attachedDatabase, _db.appSettings);
-  $$AuditLogsTableTableManager get auditLogs =>
-      $$AuditLogsTableTableManager(_db.attachedDatabase, _db.auditLogs);
+  $$AuditLogsTableTableManager get auditLogs => $$AuditLogsTableTableManager(_db.attachedDatabase, _db.auditLogs);
 }

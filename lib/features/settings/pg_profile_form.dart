@@ -57,14 +57,16 @@ class _PgProfileFormState extends State<PgProfileForm> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await widget.onSubmit(PgProfileData(
-        name: _name.text.trim(),
-        address: _address.text.trim(),
-        ownerName: _owner.text.trim(),
-        ownerPhone: _phone.text.trim(),
-        upiId: _upi.text.trim().isEmpty ? null : _upi.text.trim(),
-        rentDueDay: _dueDay,
-      ));
+      await widget.onSubmit(
+        PgProfileData(
+          name: _name.text.trim(),
+          address: _address.text.trim(),
+          ownerName: _owner.text.trim(),
+          ownerPhone: _phone.text.trim(),
+          upiId: _upi.text.trim().isEmpty ? null : _upi.text.trim(),
+          rentDueDay: _dueDay,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -160,6 +162,11 @@ class _PgProfileFormState extends State<PgProfileForm> {
 
   static String _ordinal(int n) {
     if (n >= 11 && n <= 13) return '${n}th';
-    return switch (n % 10) { 1 => '${n}st', 2 => '${n}nd', 3 => '${n}rd', _ => '${n}th' };
+    return switch (n % 10) {
+      1 => '${n}st',
+      2 => '${n}nd',
+      3 => '${n}rd',
+      _ => '${n}th',
+    };
   }
 }
