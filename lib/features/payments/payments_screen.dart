@@ -11,6 +11,7 @@ import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/form_kit.dart';
+import '../../shared/widgets/owner_pin.dart';
 import '../../shared/widgets/state_views.dart';
 import 'payment_widgets.dart';
 import 'payments_providers.dart';
@@ -26,6 +27,13 @@ class PaymentsScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Payments'),
+          actions: [
+            IconButton(
+              tooltip: 'New invoice',
+              icon: const Icon(Icons.post_add_rounded),
+              onPressed: () => context.push('/invoices/new'),
+            ),
+          ],
           bottom: TabBar(
             tabs: [
               const Tab(text: 'Invoices'),
@@ -326,6 +334,14 @@ class _VerifyTab extends ConsumerWidget {
                               confirmLabel: 'Reject',
                             );
                             if (reason == null || !context.mounted) return;
+                            if (!await requireOwnerPin(
+                                  context,
+                                  ref,
+                                  message: 'Rejecting marks this UPI payment as not received.',
+                                ) ||
+                                !context.mounted) {
+                              return;
+                            }
                             await runGuarded(
                               context,
                               () => ref.read(databaseProvider).billingDao.rejectUpiPayment(p.id, reason),

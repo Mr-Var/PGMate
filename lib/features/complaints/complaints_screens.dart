@@ -107,8 +107,11 @@ class ComplaintsScreen extends ConsumerWidget {
 }
 
 class ComplaintFormScreen extends ConsumerStatefulWidget {
-  const ComplaintFormScreen({super.key, this.tenantId});
+  const ComplaintFormScreen({super.key, this.tenantId, this.complaintId});
   final int? tenantId;
+
+  /// When set, the form edits this complaint instead of creating one.
+  final int? complaintId;
 
   @override
   ConsumerState<ComplaintFormScreen> createState() => _ComplaintFormScreenState();
@@ -122,6 +125,27 @@ class _ComplaintFormScreenState extends ConsumerState<ComplaintFormScreen> {
   String? _category;
   ComplaintPriority _priority = ComplaintPriority.medium;
   final List<(Uint8List, String)> _images = [];
+  List<String> _existingImages = const [];
+  bool get _isEdit => widget.complaintId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit) {
+      ref.read(databaseProvider).opsDao.watchComplaints().first.then((all) {
+        final v = all.where((c) => c.complaint.id == widget.complaintId).firstOrNull;
+        if (v == null || !mounted) return;
+        setState(() {
+          _desc.text = v.complaint.description;
+          _tenantId = v.complaint.tenantId;
+          _roomId = v.complaint.roomId;
+          _category = v.complaint.category;
+          _priority = v.complaint.priority;
+          _existingImages = v.images;
+        });
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -136,20 +160,28 @@ class _ComplaintFormScreenState extends ConsumerState<ComplaintFormScreen> {
       for (final img in _images) await files.save(img.$1, folder: 'complaints', extension: img.$2),
     ];
     if (!mounted) return;
+    final ops = ref.read(databaseProvider).opsDao;
     final ok = await runGuarded(
       context,
-      () => ref
-          .read(databaseProvider)
-          .opsDao
-          .addComplaint(
-            tenantId: _tenantId,
-            roomId: _roomId,
-            category: _category!,
-            description: _desc.text,
-            priority: _priority,
-            images: paths,
-          ),
-      success: 'Complaint logged',
+      () => _isEdit
+          ? ops.updateComplaintDetails(
+              widget.complaintId!,
+              tenantId: _tenantId,
+              roomId: _roomId,
+              category: _category!,
+              description: _desc.text,
+              priority: _priority,
+              newImages: paths,
+            )
+          : ops.addComplaint(
+              tenantId: _tenantId,
+              roomId: _roomId,
+              category: _category!,
+              description: _desc.text,
+              priority: _priority,
+              images: paths,
+            ),
+      success: _isEdit ? 'Complaint updated' : 'Complaint logged',
     );
     if (ok && mounted) context.pop();
   }
@@ -159,7 +191,7 @@ class _ComplaintFormScreenState extends ConsumerState<ComplaintFormScreen> {
     final tenants = ref.watch(currentTenantsProvider).value ?? const <TenantListItem>[];
     final rooms = ref.watch(roomsProvider).value ?? const <RoomWithBeds>[];
     return Scaffold(
-      appBar: AppBar(title: const Text('New complaint')),
+      appBar: AppBar(title: Text(_isEdit ? 'Edit complaint' : 'New complaint')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -248,6 +280,11 @@ class _ComplaintFormScreenState extends ConsumerState<ComplaintFormScreen> {
                   spacing: Gap.sm,
                   runSpacing: Gap.sm,
                   children: [
+                    for (final path in _existingImages)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(Radii.md),
+                        child: StoredImage(path: path, width: 88, height: 88),
+                      ),
                     for (final (i, img) in _images.indexed)
                       Stack(
                         children: [
@@ -271,7 +308,7 @@ class _ComplaintFormScreenState extends ConsumerState<ComplaintFormScreen> {
                           ),
                         ],
                       ),
-                    if (_images.length < 4)
+                    if (_existingImages.length + _images.length < 6)
                       InkWell(
                         borderRadius: BorderRadius.circular(Radii.md),
                         onTap: () async {
@@ -293,7 +330,7 @@ class _ComplaintFormScreenState extends ConsumerState<ComplaintFormScreen> {
                 ),
               ],
             ),
-            AsyncButton(label: 'Log complaint', onPressed: _save),
+            AsyncButton(label: _isEdit ? 'Save changes' : 'Log complaint', onPressed: _save),
           ],
         ),
       ),
@@ -308,8 +345,20 @@ class ComplaintDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final all = ref.watch(_allComplaintsProvider);
+    final closed =
+        all.value?.where((c) => c.complaint.id == complaintId).firstOrNull?.complaint.status == ComplaintStatus.closed;
     return Scaffold(
-      appBar: AppBar(title: const Text('Complaint')),
+      appBar: AppBar(
+        title: const Text('Complaint'),
+        actions: [
+          if (all.hasValue && !closed)
+            IconButton(
+              tooltip: 'Edit complaint',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => context.push('/more/complaints/$complaintId/edit'),
+            ),
+        ],
+      ),
       body: all.when(
         loading: () => const LoadingList(),
         error: (e, _) => ErrorState(error: e),

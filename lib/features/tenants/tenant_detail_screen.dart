@@ -69,6 +69,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
                 onSelected: (v) => _menu(v, d),
                 itemBuilder: (_) => [
                   const PopupMenuItem(value: 'ledger', child: Text('Ledger report')),
+                  if (t.securityDepositPaise > 0) const PopupMenuItem(value: 'deposit', child: Text('Deposit receipt')),
                   if (d.isCurrent && d.current != null)
                     const PopupMenuItem(value: 'transfer', child: Text('Transfer bed')),
                   if (t.status == TenantStatus.noticeGiven)
@@ -116,6 +117,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
   Future<void> _menu(String v, TenantDetail d) async {
     final dao = ref.read(databaseProvider).tenantsDao;
     switch (v) {
+      case 'deposit':
+        context.push('/tenants/${d.tenant.id}/deposit-receipt');
       case 'ledger':
         context.push('/more/reports/tenantLedger?tenant=${d.tenant.id}');
       case 'transfer':
@@ -300,7 +303,14 @@ class _Billing extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHeader(title: 'Invoices'),
+        SectionHeader(
+          title: 'Invoices',
+          trailing: TextButton.icon(
+            onPressed: () => context.push('/invoices/new?tenant=$tenantId'),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('New'),
+          ),
+        ),
         invoices.when(
           loading: () => const SkeletonBox(height: 120, radius: Radii.lg),
           error: (e, _) => Text('$e'),
@@ -409,7 +419,16 @@ class _Documents extends StatelessWidget {
           Icons.badge_outlined,
         ),
     ];
-    if (docs.isEmpty) {
+    final depositTile = tenant.securityDepositPaise <= 0
+        ? null
+        : ListTile(
+            leading: const Icon(Icons.savings_outlined, color: AppColors.primary),
+            title: const Text('Deposit receipt'),
+            subtitle: Text('${Money.format(tenant.securityDepositPaise)} · PDF'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.push('/tenants/${tenant.id}/deposit-receipt'),
+          );
+    if (docs.isEmpty && depositTile == null) {
       return _Inline(
         text: 'No documents uploaded. Add a photo or ID proof from Edit details.',
         onTap: () => context.push('/tenants/${tenant.id}/edit'),
@@ -426,6 +445,7 @@ class _Documents extends StatelessWidget {
             onTap: () =>
                 context.push(Uri(path: '/document', queryParameters: {'path': d.$2, 'title': d.$1}).toString()),
           ),
+        ?depositTile,
       ],
     );
   }

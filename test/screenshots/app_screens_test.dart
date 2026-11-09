@@ -89,6 +89,7 @@ void main() {
       ('18_backup', '/more/backup', 780.0),
       ('19_more', '/more', 780.0),
       ('20_settings', '/more/settings', 1000.0),
+      ('21_new_invoice', '/invoices/new?tenant=${ids['tenant']}', 1200.0),
     ];
     for (final (name, route, h) in pages) {
       tester.view.physicalSize = Size(1080, h * 3);

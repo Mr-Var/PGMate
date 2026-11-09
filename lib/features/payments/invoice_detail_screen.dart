@@ -12,6 +12,7 @@ import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/form_kit.dart';
+import '../../shared/widgets/owner_pin.dart';
 import '../../shared/widgets/state_views.dart';
 import 'payment_widgets.dart';
 import 'payments_providers.dart';
@@ -178,6 +179,10 @@ class _Body extends ConsumerWidget {
                 confirmLabel: 'Cancel invoice',
               );
               if (reason == null || !context.mounted) return;
+              if (!await requireOwnerPin(context, ref, message: 'Cancelling removes this invoice from billed rent.') ||
+                  !context.mounted) {
+                return;
+              }
               await runGuarded(context, () async {
                 await ref.read(databaseProvider).billingDao.cancelInvoice(i.id, reason);
                 await refreshReminders(ref.read(databaseProvider), ref.read(reminderServiceProvider));

@@ -48,8 +48,32 @@ flutter test
 flutter build apk --release
 ```
 
+## Release build and signing
+
+Debug-signed builds install fine for testing. For the Play Store (or to keep
+updates installable), sign with your own key. Keep the key and passwords safe:
+losing them means you can never update the app.
+
+1. Create a key (once):
+   `keytool -genkey -v -keystore ~/pg-manager-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`
+2. Create `android/key.properties` (never commit it):
+   ```
+   storePassword=...
+   keyPassword=...
+   keyAlias=upload
+   storeFile=/full/path/to/pg-manager-upload.jks
+   ```
+3. Load it in `android/app/build.gradle.kts` as described in Flutter's
+   "Build and release an Android app" guide, then run `flutter build apk --release`
+   (or `flutter build appbundle` for the Play Store).
+
 ## Status
 
-**Phase 1 (done):** foundation, database schema + integrity rules, PIN/biometric lock, PG setup, live dashboard, rooms & beds management, settings.
-
-**Next:** Phase 2 tenants (registration, documents, allocation, transfer, checkout) → Phase 3 invoices, payments, receipts, expenses → Phase 4 complaints, notices, menu → Phase 5 reports, CSV/PDF, encrypted backup/restore → Phase 6 hardening and release APK.
+All features in the specification are implemented: dashboard, tenants with
+full lifecycle and checkout settlement, rooms and beds, invoices (monthly and
+manual), cash/UPI payments with owner verification and reversals, PDF rent and
+deposit receipts, expenses, complaints, food menu, notices, 12 reports with
+PDF/CSV export, encrypted backup/restore, PIN + biometric lock and local rent
+reminders. 54 automated tests cover billing, integrity rules, every screen and
+the backup round trip. Device-level features (notifications, biometrics,
+camera, UPI/WhatsApp intents, file saving) still need checking on a phone.

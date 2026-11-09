@@ -13,6 +13,7 @@ import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/form_kit.dart';
+import '../../shared/widgets/owner_pin.dart';
 import '../../shared/widgets/pin_pad.dart';
 import '../../shared/widgets/state_views.dart';
 import 'payment_widgets.dart';
@@ -151,6 +152,10 @@ class _Body extends ConsumerWidget {
                 confirmLabel: 'Reject',
               );
               if (reason == null || !context.mounted) return;
+              if (!await requireOwnerPin(context, ref, message: 'Rejecting marks this UPI payment as not received.') ||
+                  !context.mounted) {
+                return;
+              }
               await runGuarded(
                 context,
                 () => ref.read(databaseProvider).billingDao.rejectUpiPayment(p.id, reason),
@@ -251,6 +256,33 @@ class ReceiptScreen extends ConsumerWidget {
           return ref.read(exportServiceProvider).receiptPdf(r);
         },
         pdfFileName: 'receipt-$paymentId.pdf',
+        canChangeOrientation: false,
+        canChangePageFormat: false,
+        canDebug: false,
+        loadingWidget: const CircularProgressIndicator(),
+      ),
+    );
+  }
+}
+
+class DepositReceiptScreen extends ConsumerWidget {
+  const DepositReceiptScreen({super.key, required this.tenantId});
+  final int tenantId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Deposit receipt')),
+      body: PdfPreview(
+        build: (_) async {
+          final db = ref.read(databaseProvider);
+          final d = await db.tenantsDao.tenantDetail(tenantId);
+          final profile = await db.settingsDao.getProfile();
+          if (d == null || profile == null) throw StateError('Tenant or PG profile missing');
+          final room = d.current?.label ?? d.history.firstOrNull?.label;
+          return ref.read(exportServiceProvider).depositReceiptPdf(profile, d.tenant, roomLabel: room);
+        },
+        pdfFileName: 'deposit-receipt-$tenantId.pdf',
         canChangeOrientation: false,
         canChangePageFormat: false,
         canDebug: false,

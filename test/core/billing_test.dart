@@ -144,6 +144,26 @@ void main() {
       );
     });
 
+    test('manual invoice for a missed month, and no duplicates', () async {
+      final id = await newTenant();
+      final inv = await db.billingDao.createInvoice(
+        tenantId: id,
+        year: 2026,
+        month: 12,
+        rentPaise: 900000,
+        additionalChargesPaise: 45000,
+        discountPaise: 5000,
+        notes: 'Electricity',
+      );
+      final row = await (db.select(db.rentInvoices)..where((i) => i.id.equals(inv))).getSingle();
+      expect(row.totalPaise, 940000);
+      expect(row.dueDate, DateTime(2026, 12, 5));
+      expect(
+        () => db.billingDao.createInvoice(tenantId: id, year: 2026, month: 12, rentPaise: 1),
+        throwsA(isA<RuleException>()),
+      );
+    });
+
     test('invoices with payments cannot be cancelled', () async {
       final id = await newTenant();
       final inv = (await invoices(id)).single;

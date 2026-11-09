@@ -14,6 +14,7 @@ import '../features/food_menu/food_menu_screen.dart';
 import '../features/notices/notices_screens.dart';
 import '../features/payments/collect_payment_screen.dart';
 import '../features/payments/invoice_detail_screen.dart';
+import '../features/payments/invoice_form_screen.dart';
 import '../features/payments/payment_detail_screen.dart';
 import '../features/payments/payments_screen.dart';
 import '../features/reports/reports_screens.dart';
@@ -96,6 +97,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => TenantFormScreen(tenantId: _id(s)),
       ),
       GoRoute(
+        path: '/tenants/:id/deposit-receipt',
+        builder: (_, s) => DepositReceiptScreen(tenantId: _id(s)!),
+      ),
+      GoRoute(
         path: '/tenants/:id/checkout',
         builder: (_, s) => CheckoutScreen(tenantId: _id(s)!),
       ),
@@ -113,16 +118,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => ReceiptScreen(paymentId: _id(s)!),
       ),
       GoRoute(
+        path: '/invoices/new',
+        builder: (_, s) => InvoiceFormScreen(tenantId: _q(s, 'tenant')),
+      ),
+      GoRoute(
         path: '/invoices/:id',
         builder: (_, s) => InvoiceDetailScreen(invoiceId: _id(s)!),
       ),
 
       GoRoute(path: '/more/expenses', builder: (_, _) => const ExpensesScreen()),
-      GoRoute(path: '/more/expenses/new', builder: (_, _) => const ExpenseFormScreen()),
+      GoRoute(
+        path: '/more/expenses/new',
+        builder: (_, s) => ExpenseFormScreen(copyFromId: _q(s, 'from')),
+      ),
       GoRoute(path: '/more/complaints', builder: (_, _) => const ComplaintsScreen()),
       GoRoute(
         path: '/more/complaints/new',
         builder: (_, s) => ComplaintFormScreen(tenantId: _q(s, 'tenant')),
+      ),
+      GoRoute(
+        path: '/more/complaints/:id/edit',
+        builder: (_, s) => ComplaintFormScreen(complaintId: _id(s)),
       ),
       GoRoute(
         path: '/more/complaints/:id',

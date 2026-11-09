@@ -9,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../database/app_database.dart';
 import '../database/daos/billing_dao.dart';
 import '../database/daos/reports_dao.dart';
 import '../database/enums.dart';
@@ -182,6 +183,120 @@ class ExportService {
               p0.status == PaymentStatus.pendingVerification
                   ? 'UPI payment awaiting owner verification. This is not yet a confirmed receipt.'
                   : 'Computer-generated receipt from ${r.profile.name}. No signature required.',
+              style: const pw.TextStyle(fontSize: 8, color: _muted),
+            ),
+          ],
+        ),
+      ),
+    );
+    return doc.save();
+  }
+
+  static String depositReceiptNumber(Tenant t) => 'DEP-${t.joiningDate.year}-${t.id.toString().padLeft(4, '0')}';
+
+  /// Acknowledgement of the security deposit held for a tenant. The deposit
+  /// is not income, so it has its own receipt series (DEP-…).
+  Future<Uint8List> depositReceiptPdf(PgProfile profile, Tenant t, {String? roomLabel}) async {
+    final theme = await _pdfTheme();
+    final doc = pw.Document(title: 'Deposit receipt ${depositReceiptNumber(t)}', author: profile.name, theme: theme);
+    final settled = t.checkoutDate != null;
+    pw.Widget kv(String k, String v, {bool strong = false}) => pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+      child: pw.Row(
+        children: [
+          pw.SizedBox(
+            width: 150,
+            child: pw.Text(k, style: const pw.TextStyle(color: _muted, fontSize: 10)),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              v,
+              style: pw.TextStyle(fontSize: strong ? 12 : 10, fontWeight: strong ? pw.FontWeight.bold : null),
+            ),
+          ),
+        ],
+      ),
+    );
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a5,
+        margin: const pw.EdgeInsets.all(28),
+        build: (_) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        profile.name,
+                        style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _ink),
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(profile.address, style: const pw.TextStyle(fontSize: 9, color: _muted)),
+                      pw.Text(
+                        '${profile.ownerName} · +91 ${profile.ownerPhone}',
+                        style: const pw.TextStyle(fontSize: 9, color: _muted),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: pw.BoxDecoration(color: _brand, borderRadius: pw.BorderRadius.circular(6)),
+                  child: pw.Text(
+                    'DEPOSIT RECEIPT',
+                    style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 18),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(14),
+              decoration: pw.BoxDecoration(color: _soft, borderRadius: pw.BorderRadius.circular(8)),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('Security deposit received', style: const pw.TextStyle(fontSize: 9, color: _muted)),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    Money.format(t.securityDepositPaise),
+                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: _ink),
+                  ),
+                  pw.Text(_inWords(t.securityDepositPaise), style: const pw.TextStyle(fontSize: 9, color: _muted)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 14),
+            kv('Receipt number', depositReceiptNumber(t), strong: true),
+            kv('Received from', t.fullName),
+            kv('Phone', '+91 ${t.phone}'),
+            if (roomLabel != null) kv('Room', roomLabel),
+            kv('Date received', Dates.short(t.joiningDate)),
+            kv('Monthly rent', Money.format(t.monthlyRentPaise)),
+            if (settled) ...[
+              pw.SizedBox(height: 8),
+              pw.Divider(color: _line),
+              kv('Checked out', Dates.short(t.checkoutDate!)),
+              kv('Adjusted against dues', Money.format(t.depositAdjustedPaise)),
+              kv('Refunded to tenant', Money.format(t.depositRefundedPaise), strong: true),
+            ],
+            pw.Spacer(),
+            pw.Divider(color: _line),
+            pw.Text(
+              settled
+                  ? 'The deposit has been settled as shown above.'
+                  : 'Refundable at checkout after adjusting any unpaid rent or agreed deductions.',
               style: const pw.TextStyle(fontSize: 8, color: _muted),
             ),
           ],

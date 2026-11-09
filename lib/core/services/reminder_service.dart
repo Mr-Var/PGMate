@@ -30,7 +30,7 @@ class ReminderService {
       final local = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(local.identifier));
       await _plugin.initialize(
-        settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+        settings: const InitializationSettings(android: AndroidInitializationSettings('@drawable/ic_stat_notify')),
       );
       _ready = true;
     } catch (e) {

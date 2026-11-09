@@ -14,6 +14,7 @@ import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/form_kit.dart';
+import '../../shared/widgets/owner_pin.dart';
 import '../../shared/widgets/state_views.dart';
 import '../../shared/widgets/validators.dart';
 import '../payments/payment_widgets.dart';
@@ -228,7 +229,30 @@ class _ExpenseTile extends ConsumerWidget {
                   ),
                   const SizedBox(height: Gap.md),
                 ],
-                if (!e.isVoided)
+                if (!e.isVoided) ...[
+                  AsyncButton(
+                    label: 'Correct this expense',
+                    icon: Icons.edit_outlined,
+                    outlined: true,
+                    onPressed: () async {
+                      // Expenses are never edited in place: the old entry is
+                      // voided and a corrected copy is entered.
+                      final pinOk = await requireOwnerPin(
+                        ctx,
+                        ref,
+                        message: 'The current entry is voided and kept in history. You then save the corrected one.',
+                      );
+                      if (!pinOk || !ctx.mounted) return;
+                      final ok = await runGuarded(
+                        ctx,
+                        () => ref.read(databaseProvider).opsDao.voidExpense(e.id, 'Corrected: re-entered'),
+                      );
+                      if (!ok || !ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      if (context.mounted) context.push('/more/expenses/new?from=${e.id}');
+                    },
+                  ),
+                  const SizedBox(height: Gap.md),
                   AsyncButton(
                     label: 'Void this expense',
                     outlined: true,
@@ -236,6 +260,12 @@ class _ExpenseTile extends ConsumerWidget {
                     onPressed: () async {
                       final reason = await askReason(ctx, title: 'Void expense?', hint: 'Reason', confirmLabel: 'Void');
                       if (reason == null || !ctx.mounted) return;
+                      final pinOk = await requireOwnerPin(
+                        ctx,
+                        ref,
+                        message: 'Voiding removes this expense from totals.',
+                      );
+                      if (!pinOk || !ctx.mounted) return;
                       final ok = await runGuarded(
                         ctx,
                         () => ref.read(databaseProvider).opsDao.voidExpense(e.id, reason),
@@ -244,6 +274,7 @@ class _ExpenseTile extends ConsumerWidget {
                       if (ok && ctx.mounted) Navigator.pop(ctx);
                     },
                   ),
+                ],
               ],
             ),
           ),
@@ -254,7 +285,10 @@ class _ExpenseTile extends ConsumerWidget {
 }
 
 class ExpenseFormScreen extends ConsumerStatefulWidget {
-  const ExpenseFormScreen({super.key});
+  const ExpenseFormScreen({super.key, this.copyFromId});
+
+  /// Pre-fills the form from a voided expense being corrected.
+  final int? copyFromId;
 
   @override
   ConsumerState<ExpenseFormScreen> createState() => _ExpenseFormScreenState();
@@ -270,6 +304,29 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   PaymentMethod _method = PaymentMethod.cash;
   DateTime _date = Dates.today();
   (Uint8List, String)? _bill;
+  String? _existingBill;
+
+  @override
+  void initState() {
+    super.initState();
+    final from = widget.copyFromId;
+    if (from != null) {
+      final db = ref.read(databaseProvider);
+      (db.select(db.expenses)..where((x) => x.id.equals(from))).getSingleOrNull().then((e) {
+        if (e == null || !mounted) return;
+        setState(() {
+          _title.text = e.title;
+          _amount.text = Money.toInput(e.amountPaise);
+          _vendor.text = e.vendor ?? '';
+          _notes.text = e.notes ?? '';
+          _category = e.category;
+          _method = e.paymentMethod;
+          _date = e.expenseDate;
+          _existingBill = e.billPath;
+        });
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -282,7 +339,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final path = _bill == null
-        ? null
+        ? _existingBill
         : await ref.read(fileStoreProvider).save(_bill!.$1, folder: 'bills', extension: _bill!.$2);
     if (!mounted) return;
     final ok = await runGuarded(
@@ -308,7 +365,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add expense')),
+      appBar: AppBar(title: Text(widget.copyFromId == null ? 'Add expense' : 'Corrected expense')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -381,7 +438,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     _bill == null ? Icons.attach_file_rounded : Icons.check_circle_rounded,
                     color: _bill == null ? null : AppColors.success,
                   ),
-                  label: Text(_bill == null ? 'Attach bill (photo or PDF)' : 'Bill attached · tap to change'),
+                  label: Text(
+                    _bill != null || _existingBill != null
+                        ? 'Bill attached · tap to change'
+                        : 'Attach bill (photo or PDF)',
+                  ),
                 ),
                 TextFormField(
                   controller: _notes,

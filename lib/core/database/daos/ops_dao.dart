@@ -170,6 +170,35 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
     });
   }
 
+  /// Corrects complaint details while it is still being worked on.
+  Future<void> updateComplaintDetails(
+    int id, {
+    int? tenantId,
+    int? roomId,
+    required String category,
+    required String description,
+    required ComplaintPriority priority,
+    List<String> newImages = const [],
+  }) {
+    return transaction(() async {
+      final c = await (select(complaints)..where((x) => x.id.equals(id))).getSingle();
+      if (c.status == ComplaintStatus.closed) throw RuleException('Closed complaints cannot be edited.');
+      final images = [...(jsonDecode(c.imagePaths) as List).cast<String>(), ...newImages];
+      await (update(complaints)..where((x) => x.id.equals(id))).write(
+        ComplaintsCompanion(
+          tenantId: Value(tenantId),
+          roomId: Value(roomId),
+          category: Value(category),
+          description: Value(description.trim()),
+          priority: Value(priority),
+          imagePaths: Value(jsonEncode(images)),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      await db.settingsDao.log('complaint', id, 'edit');
+    });
+  }
+
   Future<void> addComplaintImages(int id, List<String> paths) {
     return transaction(() async {
       final c = await (select(complaints)..where((x) => x.id.equals(id))).getSingle();

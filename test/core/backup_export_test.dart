@@ -151,6 +151,12 @@ void main() {
       expect(String.fromCharCodes(pdf.take(5)), '%PDF-', reason: type.name);
     }
 
+    final tenant = (await db.select(db.tenants).get()).single;
+    final profile = (await db.settingsDao.getProfile())!;
+    final deposit = await export.depositReceiptPdf(profile, tenant, roomLabel: 'Room 101 · Bed A');
+    expect(String.fromCharCodes(deposit.take(5)), '%PDF-');
+    expect(ExportService.depositReceiptNumber(tenant), 'DEP-2026-0001');
+
     final csv = ExportService.toCsv(await db.reportsDao.build(ReportType.collection, DateRange.month(2026, 11)));
     expect(csv.startsWith('﻿'), isTrue);
     expect(csv, contains('Receipt,Tenant'));
