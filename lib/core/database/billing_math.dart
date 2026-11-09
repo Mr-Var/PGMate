@@ -29,4 +29,27 @@ abstract final class BillingMath {
     final joinDay = DateTime(joining.year, joining.month, joining.day);
     return due.isBefore(joinDay) ? joinDay : due;
   }
+
+  /// Rent for one calendar month when rent started on [start]: full rent for
+  /// months after the start month, prorated in the start month, zero before.
+  static int rentForMonth(int monthlyRentPaise, DateTime start, int year, int month) {
+    final first = DateTime(year, month);
+    final next = DateTime(year, month + 1);
+    final s = DateTime(start.year, start.month, start.day);
+    if (!s.isBefore(next)) return 0;
+    if (s.isBefore(first)) return monthlyRentPaise;
+    return joiningMonthRent(monthlyRentPaise, s);
+  }
+
+  /// Every month (first day) from [start]'s month up to and including [upTo]'s month.
+  static List<DateTime> monthsBetween(DateTime start, DateTime upTo) {
+    final out = <DateTime>[];
+    var m = DateTime(start.year, start.month);
+    final last = DateTime(upTo.year, upTo.month);
+    while (!m.isAfter(last)) {
+      out.add(m);
+      m = DateTime(m.year, m.month + 1);
+    }
+    return out;
+  }
 }

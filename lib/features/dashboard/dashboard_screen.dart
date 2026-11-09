@@ -10,9 +10,19 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/form_kit.dart';
 import '../../shared/widgets/state_views.dart';
 import 'dashboard_providers.dart';
 import 'period_picker.dart';
+
+final _missingInvoicesProvider = StreamProvider<int>(
+  (ref) => ref.watch(databaseProvider).billingDao.watchMissingInvoiceCount(),
+);
+
+final _trendProvider = FutureProvider<List<(DateTime, int, int)>>((ref) {
+  ref.watch(dashboardSummaryProvider); // refresh with the dashboard
+  return ref.watch(databaseProvider).reportsDao.monthlyTrend(6);
+});
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -34,7 +44,6 @@ class DashboardScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, 0),
                 sliver: SliverToBoxAdapter(
                   child: _Header(
-                    ownerName: profile?.ownerName,
                     pgName: profile?.name,
                     range: range,
                     onPickRange: () async {
@@ -73,84 +82,80 @@ class DashboardScreen extends ConsumerWidget {
         _SetupCard(onAddRoom: () => context.push('/rooms/new')),
         const SizedBox(height: Gap.lg),
       ],
-      _CollectionHero(summary: s),
-      if (s.pendingUpiCount > 0) ...[const SizedBox(height: Gap.md), _PendingUpiBanner(count: s.pendingUpiCount)],
-      const SectionHeader(title: 'Quick actions'),
+      _LedgerCard(summary: s),
+      const SizedBox(height: Gap.md),
       const _QuickActions(),
-      const _InvoicePrompt(),
+      _Attention(summary: s),
       const SectionHeader(title: 'Occupancy'),
       _OccupancyCard(summary: s, onTap: () => context.go('/rooms')),
-      SectionHeader(
-        title: 'Finances',
-        trailing: Text(s.range.label, style: _caption(context)),
-      ),
-      _FinanceGrid(summary: s),
-      const SectionHeader(title: 'Collection trend'),
+      const SectionHeader(title: 'Billed vs received · 6 months'),
       const _TrendCard(),
-      SectionHeader(title: 'Rent due today', count: s.dueToday.length),
-      _DueList(items: s.dueToday, emptyText: 'No rent is due today.', overdue: false),
+      SectionHeader(title: 'Due today', count: s.dueToday.length),
+      _PeopleList(items: s.dueToday, emptyText: 'No rent is due today.', overdue: false),
       SectionHeader(title: 'Overdue', count: s.overdue.length),
-      _DueList(items: s.overdue, emptyText: 'No overdue rent. Great job!', overdue: true),
-      SectionHeader(title: 'Upcoming checkouts', count: s.upcomingCheckouts.length),
+      _PeopleList(items: s.overdue, emptyText: 'Nobody is overdue.', overdue: true),
+      SectionHeader(title: 'Leaving soon', count: s.upcomingCheckouts.length),
       _CheckoutList(items: s.upcomingCheckouts),
-      const SectionHeader(title: 'Recent transactions'),
+      const SectionHeader(title: 'Recent activity'),
       _RecentList(items: s.recent),
     ];
   }
-
-  static TextStyle? _caption(BuildContext context) =>
-      Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted);
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.ownerName, required this.pgName, required this.range, required this.onPickRange});
+  const _Header({required this.pgName, required this.range, required this.onPickRange});
 
-  final String? ownerName;
   final String? pgName;
   final DateRange range;
   final VoidCallback onPickRange;
 
-  String get _greeting {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final first = ownerName?.split(' ').first;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                first == null ? _greeting : '$_greeting, $first',
-                style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 2),
+              Eyebrow(DateFormat('EEEE, d MMMM').format(DateTime.now())),
+              const SizedBox(height: 4),
               Text(pgName ?? 'Dashboard', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.headlineSmall),
             ],
           ),
         ),
         const SizedBox(width: Gap.md),
-        ActionChip(
-          avatar: const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
-          label: Text(range.isSingleMonth ? Dates.monthYear(range.start) : 'Custom'),
-          tooltip: 'Change period: ${range.label}',
-          onPressed: onPickRange,
+        Material(
+          color: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.md),
+            side: const BorderSide(color: AppColors.borderStrong),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(Radii.md),
+            onTap: onPickRange,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(range.isSingleMonth ? Dates.monthYear(range.start) : 'Custom range', style: t.labelLarge),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.unfold_more_rounded, size: 18, color: AppColors.textMuted),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _CollectionHero extends StatelessWidget {
-  const _CollectionHero({required this.summary});
+/// The one place money figures appear on the dashboard, read like a ledger.
+class _LedgerCard extends StatelessWidget {
+  const _LedgerCard({required this.summary});
   final DashboardSummary summary;
 
   @override
@@ -158,84 +163,85 @@ class _CollectionHero extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final s = summary;
     final pct = (s.collectionRate * 100).round();
-    final onDim = Colors.white.withValues(alpha: 0.72);
+    final net = s.netCashFlowPaise;
+    final period = s.range.isSingleMonth ? DateFormat('MMMM').format(s.range.start) : 'this period';
 
     return Semantics(
       container: true,
       label:
-          'Collected ${Money.format(s.rentCollectedPaise)} in ${s.range.label}. '
-          'Billed ${Money.format(s.rentBilledPaise)}. Outstanding ${Money.format(s.outstandingPaise)}.',
+          'Received ${Money.format(s.rentCollectedPaise)} in ${s.range.label}. '
+          '${Money.format(s.billedPaidPaise)} of ${Money.format(s.rentBilledPaise)} billed is paid. '
+          'Outstanding ${Money.format(s.outstandingPaise)}. Expenses ${Money.format(s.expensesPaise)}.',
       excludeSemantics: true,
-      child: Container(
-        padding: const EdgeInsets.all(Gap.xl),
-        decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(Radii.xl)),
+      child: Card(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Rent collected',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.labelLarge?.copyWith(color: onDim),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.lg + 4, Gap.lg + 4, Gap.lg + 4, Gap.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Eyebrow('Rent received in $period'),
+                  const SizedBox(height: Gap.sm),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(Money.format(s.rentCollectedPaise), style: AppTheme.figure(36)),
                   ),
-                ),
-                const SizedBox(width: Gap.sm),
-                Flexible(
-                  child: Text(
-                    s.range.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.labelMedium?.copyWith(color: onDim),
+                  const SizedBox(height: Gap.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          s.rentBilledPaise == 0
+                              ? 'No rent billed for $period yet'
+                              : '${Money.format(s.billedPaidPaise)} of ${Money.format(s.rentBilledPaise)} billed is paid',
+                          style: t.bodySmall?.copyWith(color: AppColors.textSecondary, fontFeatures: AppTheme.tabular),
+                        ),
+                      ),
+                      if (s.rentBilledPaise > 0)
+                        Text('$pct%', style: AppTheme.figure(13, color: AppColors.textSecondary)),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: Gap.sm),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                Money.format(s.rentCollectedPaise),
-                style: t.displaySmall?.copyWith(color: Colors.white, fontFeatures: AppTheme.tabular),
+                  const SizedBox(height: Gap.sm),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: s.collectionRate),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOutCubic,
+                      builder: (_, v, _) => LinearProgressIndicator(
+                        value: v,
+                        minHeight: 6,
+                        backgroundColor: AppColors.heroTrack,
+                        valueColor: const AlwaysStoppedAnimation(AppColors.heroProgress),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: Gap.lg),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: s.collectionRate),
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.easeOutCubic,
-                builder: (_, v, _) => LinearProgressIndicator(
-                  value: v,
-                  minHeight: 8,
-                  backgroundColor: AppColors.heroTrack,
-                  valueColor: const AlwaysStoppedAnimation(AppColors.heroProgress),
-                ),
+            const Divider(),
+            IntrinsicHeight(
+              child: Row(
+                children: [
+                  _Figure(
+                    label: 'Outstanding',
+                    value: s.outstandingPaise,
+                    color: s.outstandingPaise > 0 ? AppColors.danger : null,
+                  ),
+                  const VerticalDivider(width: 1),
+                  _Figure(label: 'Expenses', value: s.expensesPaise),
+                  const VerticalDivider(width: 1),
+                  _Figure(
+                    label: 'Net cash',
+                    value: net,
+                    signed: true,
+                    color: net < 0 ? AppColors.danger : (net > 0 ? AppColors.success : null),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: Gap.sm),
-            Text(
-              s.rentBilledPaise == 0 ? 'No invoices billed in this period' : '$pct% of billed rent collected',
-              style: t.bodySmall?.copyWith(color: onDim),
-            ),
-            const SizedBox(height: Gap.lg),
-            Divider(color: Colors.white.withValues(alpha: 0.14)),
-            const SizedBox(height: Gap.md),
-            Row(
-              children: [
-                Expanded(
-                  child: _HeroStat(label: 'Billed', value: Money.format(s.rentBilledPaise)),
-                ),
-                Container(width: 1, height: 36, color: Colors.white.withValues(alpha: 0.14)),
-                const SizedBox(width: Gap.lg),
-                Expanded(
-                  child: _HeroStat(label: 'Outstanding', value: Money.format(s.outstandingPaise)),
-                ),
-              ],
             ),
           ],
         ),
@@ -244,60 +250,29 @@ class _CollectionHero extends StatelessWidget {
   }
 }
 
-class _HeroStat extends StatelessWidget {
-  const _HeroStat({required this.label, required this.value});
+class _Figure extends StatelessWidget {
+  const _Figure({required this.label, required this.value, this.color, this.signed = false});
   final String label;
-  final String value;
+  final int value;
+  final Color? color;
+  final bool signed;
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: t.labelMedium?.copyWith(color: Colors.white.withValues(alpha: 0.72))),
-        const SizedBox(height: 2),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            value,
-            style: t.titleMedium?.copyWith(color: Colors.white, fontFeatures: AppTheme.tabular),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PendingUpiBanner extends StatelessWidget {
-  const _PendingUpiBanner({required this.count});
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => context.go('/payments'),
-      borderRadius: BorderRadius.circular(Radii.md),
-      child: Container(
-        padding: const EdgeInsets.all(Gap.md),
-        decoration: BoxDecoration(
-          color: AppColors.warningSoft,
-          borderRadius: BorderRadius.circular(Radii.md),
-          border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
-        ),
-        child: Row(
+    final text = signed && value != 0 ? '${value > 0 ? '+' : '−'}${Money.format(value.abs())}' : Money.format(value);
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.sm, Gap.md + 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.hourglass_top_rounded, color: AppColors.warning, size: 20),
-            const SizedBox(width: Gap.md),
-            Expanded(
-              child: Text(
-                '$count UPI ${count == 1 ? 'payment needs' : 'payments need'} verification. '
-                'They are not counted as collected until you confirm them.',
-                style: const TextStyle(color: AppColors.warning, fontWeight: FontWeight.w500, fontSize: 13),
-              ),
+            Eyebrow(label),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(text, style: AppTheme.figure(15.5, color: color)),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.warning),
           ],
         ),
       ),
@@ -310,90 +285,40 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actions = [
-      (Icons.person_add_alt_1_outlined, 'Add tenant', '/tenants/new'),
-      (Icons.add_card_rounded, 'Collect rent', '/payments/collect'),
-      (Icons.receipt_outlined, 'Add expense', '/more/expenses/new'),
-      (Icons.report_problem_outlined, 'Complaint', '/more/complaints/new'),
+    const actions = [
+      (Icons.person_add_alt_outlined, 'Add tenant', '/tenants/new'),
+      (Icons.payments_outlined, 'Collect', '/payments/collect'),
+      (Icons.receipt_long_outlined, 'Expense', '/more/expenses/new'),
+      (Icons.build_circle_outlined, 'Complaint', '/more/complaints/new'),
     ];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final a in actions)
-          Expanded(
-            child: Semantics(
-              button: true,
-              label: a.$2,
-              excludeSemantics: true,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(Radii.md),
-                onTap: () => context.push(a.$3),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: Gap.sm),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: AppColors.accentSoft,
-                          borderRadius: BorderRadius.circular(Radii.lg),
-                        ),
-                        child: Icon(a.$1, color: AppColors.accentText, size: 26),
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            for (final (i, a) in actions.indexed) ...[
+              if (i > 0) const VerticalDivider(width: 1),
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: a.$2,
+                  excludeSemantics: true,
+                  child: InkWell(
+                    onTap: () => context.push(a.$3),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: Gap.md + 2),
+                      child: Column(
+                        children: [
+                          Icon(a.$1, color: AppColors.primary, size: 22),
+                          const SizedBox(height: 6),
+                          Text(a.$2, style: Theme.of(context).textTheme.labelMedium, maxLines: 1),
+                        ],
                       ),
-                      const SizedBox(height: Gap.sm),
-                      Text(
-                        a.$2,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-final _unbilledNowProvider = StreamProvider<int>((ref) {
-  final n = DateTime.now();
-  return ref.watch(databaseProvider).billingDao.watchUnbilledCount(n.year, n.month);
-});
-
-/// Prompts to bill the current month when some tenants have no invoice yet.
-class _InvoicePrompt extends ConsumerWidget {
-  const _InvoicePrompt();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(_unbilledNowProvider).value ?? 0;
-    if (count == 0) return const SizedBox.shrink();
-    final t = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: Gap.md),
-      child: AppCard(
-        onTap: () => context.go('/payments'),
-        child: Row(
-          children: [
-            const Icon(Icons.auto_awesome_outlined, color: AppColors.primary),
-            const SizedBox(width: Gap.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Bill ${Dates.monthYear(DateTime.now())} rent', style: t.titleSmall),
-                  Text(
-                    '$count ${count == 1 ? 'tenant has' : 'tenants have'} no invoice yet',
-                    style: t.bodySmall?.copyWith(color: AppColors.textMuted),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded),
+            ],
           ],
         ),
       ),
@@ -401,12 +326,192 @@ class _InvoicePrompt extends ConsumerWidget {
   }
 }
 
-final _trendProvider = FutureProvider<List<(DateTime, int, int)>>((ref) {
-  ref.watch(dashboardSummaryProvider); // refresh with the dashboard
-  return ref.watch(databaseProvider).reportsDao.monthlyTrend(6);
-});
+/// Things the owner should act on, in one compact list. Hidden when clear.
+class _Attention extends ConsumerWidget {
+  const _Attention({required this.summary});
+  final DashboardSummary summary;
 
-/// Six-month billed vs collected bars, drawn to one scale.
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = summary;
+    final missing = ref.watch(_missingInvoicesProvider).value ?? 0;
+    final overdueTotal = s.overdue.fold<int>(0, (a, d) => a + d.balancePaise);
+    final rows = <(IconData, Color, String, String, VoidCallback)>[
+      if (s.pendingUpiCount > 0)
+        (
+          Icons.hourglass_top_rounded,
+          AppColors.warning,
+          '${s.pendingUpiCount} UPI ${s.pendingUpiCount == 1 ? 'payment' : 'payments'} to verify',
+          'Not counted until you confirm them',
+          () => context.go('/payments'),
+        ),
+      if (missing > 0)
+        (
+          Icons.receipt_long_outlined,
+          AppColors.primary,
+          '$missing ${missing == 1 ? 'invoice' : 'invoices'} not created',
+          'Months with a tenant in a bed but no bill',
+          () => _billMissing(context, ref, missing),
+        ),
+      if (s.overdue.isNotEmpty)
+        (
+          Icons.error_outline_rounded,
+          AppColors.danger,
+          '${s.overdue.length} overdue · ${Money.format(overdueTotal)}',
+          'Open a tenant to send a WhatsApp reminder',
+          () => context.go('/tenants'),
+        ),
+    ];
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final t = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionHeader(title: 'Needs attention'),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (final (i, r) in rows.indexed) ...[
+                if (i > 0) const Divider(indent: 52),
+                InkWell(
+                  onTap: r.$5,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
+                    child: Row(
+                      children: [
+                        Icon(r.$1, size: 20, color: r.$2),
+                        const SizedBox(width: Gap.lg),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(r.$3, style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular)),
+                              Text(r.$4, style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _billMissing(BuildContext context, WidgetRef ref, int count) async {
+    final ok = await confirmAction(
+      context,
+      title: 'Create $count ${count == 1 ? 'invoice' : 'invoices'}?',
+      message:
+          'Bills every month a tenant has had a bed but no invoice, up to this month. '
+          'The first month is charged from the day the bed was assigned. Advance credit is applied.',
+      confirmLabel: 'Create',
+    );
+    if (!ok || !context.mounted) return;
+    await runGuarded(context, () async {
+      final db = ref.read(databaseProvider);
+      final n = await db.billingDao.generateAllMissing();
+      await refreshReminders(db, ref.read(reminderServiceProvider));
+      if (context.mounted) showAppSnack(context, '$n ${n == 1 ? 'invoice' : 'invoices'} created');
+    });
+  }
+}
+
+class _OccupancyCard extends StatelessWidget {
+  const _OccupancyCard({required this.summary, required this.onTap});
+  final DashboardSummary summary;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final s = summary;
+    final segments = [
+      ('Occupied', s.occupiedBeds, AppColors.bedOccupied),
+      ('Free', s.availableBeds, AppColors.bedAvailable),
+      ('Reserved', s.reservedBeds, AppColors.bedReserved),
+      ('Repair', s.maintenanceBeds, AppColors.bedMaintenance),
+    ];
+    return AppCard(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text('${(s.occupancy * 100).round()}%', style: AppTheme.figure(28)),
+              const SizedBox(width: Gap.sm),
+              Expanded(
+                child: Text(
+                  '${s.occupiedBeds} of ${s.totalBeds} beds · ${s.totalTenants} tenants',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Gap.md),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: SizedBox(
+              height: 8,
+              child: s.totalBeds == 0
+                  ? Container(color: AppColors.surfaceMuted)
+                  : Row(
+                      children: [
+                        for (final seg in segments)
+                          if (seg.$2 > 0)
+                            Expanded(
+                              flex: seg.$2,
+                              child: Container(color: seg.$3),
+                            ),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: Gap.md),
+          Row(
+            children: [
+              for (final seg in segments)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(color: seg.$3, shape: BoxShape.circle),
+                          ),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(seg.$1, maxLines: 1, style: t.labelSmall?.copyWith(color: AppColors.textMuted)),
+                          ),
+                        ],
+                      ),
+                      Text('${seg.$2}', style: AppTheme.figure(15)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Six months of billed vs received, drawn to one scale with a baseline.
 class _TrendCard extends ConsumerWidget {
   const _TrendCard();
 
@@ -419,55 +524,61 @@ class _TrendCard extends ConsumerWidget {
     if (maxV == 0) {
       return AppCard(
         child: Text(
-          'Billed and collected rent for the last six months will appear here.',
+          'Billed and received rent for the last six months will appear here.',
           style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
       );
     }
+    final last = data.last;
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _Legend(color: AppColors.primary.withValues(alpha: 0.22), label: 'Billed'),
+              const _Legend(color: AppColors.borderStrong, label: 'Billed'),
               const SizedBox(width: Gap.lg),
-              const _Legend(color: AppColors.primary, label: 'Collected'),
+              const _Legend(color: AppColors.primary, label: 'Received'),
               const Spacer(),
-              Text('Max ${Money.compact(maxV)}', style: t.labelSmall?.copyWith(color: AppColors.textMuted)),
+              Text('max ${Money.compact(maxV)}', style: t.labelSmall?.copyWith(color: AppColors.textMuted)),
             ],
           ),
-          const SizedBox(height: Gap.lg),
+          const SizedBox(height: Gap.md),
           SizedBox(
-            height: 120,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (final d in data)
-                  Expanded(
-                    child: Semantics(
-                      label: '${Dates.monthYear(d.$1)}: billed ${Money.format(d.$2)}, collected ${Money.format(d.$3)}',
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: _Bar(fraction: d.$2 / maxV, color: AppColors.primary.withValues(alpha: 0.22)),
-                            ),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: _Bar(fraction: d.$3 / maxV, color: AppColors.primary),
-                            ),
-                          ],
+            height: 112,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppColors.borderStrong)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final d in data)
+                    Expanded(
+                      child: Semantics(
+                        label: '${Dates.monthYear(d.$1)}: billed ${Money.format(d.$2)}, received ${Money.format(d.$3)}',
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 7),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: _Bar(fraction: d.$2 / maxV, color: AppColors.borderStrong),
+                              ),
+                              const SizedBox(width: 2),
+                              Expanded(
+                                child: _Bar(fraction: d.$3 / maxV, color: AppColors.primary),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: Gap.sm),
+          const SizedBox(height: 6),
           Row(
             children: [
               for (final d in data)
@@ -475,7 +586,10 @@ class _TrendCard extends ConsumerWidget {
                   child: Text(
                     DateFormat('MMM').format(d.$1),
                     textAlign: TextAlign.center,
-                    style: t.labelSmall?.copyWith(color: AppColors.textMuted),
+                    style: t.labelSmall?.copyWith(
+                      color: d == last ? AppColors.textPrimary : AppColors.textMuted,
+                      fontWeight: d == last ? FontWeight.w600 : null,
+                    ),
                   ),
                 ),
             ],
@@ -498,10 +612,10 @@ class _Bar extends StatelessWidget {
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeOutCubic,
       builder: (_, v, _) => Container(
-        height: v == 0 ? 2 : 120 * v,
+        height: v == 0 ? 0 : (111 * v).clamp(2, 111),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
         ),
       ),
     );
@@ -518,255 +632,31 @@ class _Legend extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
       ),
       const SizedBox(width: 6),
-      Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+      Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary)),
     ],
   );
 }
 
-class _OccupancyCard extends StatelessWidget {
-  const _OccupancyCard({required this.summary, required this.onTap});
-  final DashboardSummary summary;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final s = summary;
-    final segments = [
-      ('Occupied', s.occupiedBeds, AppColors.bedOccupied),
-      ('Available', s.availableBeds, AppColors.bedAvailable),
-      ('Reserved', s.reservedBeds, AppColors.bedReserved),
-      ('Maintenance', s.maintenanceBeds, AppColors.bedMaintenance),
-    ];
-
-    return AppCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(Gap.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${(s.occupancy * 100).round()}%',
-                style: t.headlineMedium?.copyWith(fontFeatures: AppTheme.tabular),
-              ),
-              const SizedBox(width: Gap.sm),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    'occupied',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
-                  ),
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('${s.totalTenants}', style: t.titleLarge?.copyWith(fontFeatures: AppTheme.tabular)),
-                  Text('tenants', style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
-                ],
-              ),
-              const SizedBox(width: Gap.lg),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('${s.totalBeds}', style: t.titleLarge?.copyWith(fontFeatures: AppTheme.tabular)),
-                  Text('beds', style: t.bodySmall?.copyWith(color: AppColors.textMuted)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: Gap.lg),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: SizedBox(
-              height: 12,
-              child: s.totalBeds == 0
-                  ? Container(color: AppColors.surfaceMuted)
-                  : Row(
-                      children: [
-                        for (final seg in segments)
-                          if (seg.$2 > 0)
-                            Expanded(
-                              flex: seg.$2,
-                              child: Container(color: seg.$3),
-                            ),
-                      ],
-                    ),
-            ),
-          ),
-          const SizedBox(height: Gap.md),
-          Wrap(
-            spacing: Gap.lg,
-            runSpacing: Gap.sm,
-            children: [
-              for (final seg in segments)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(color: seg.$3, borderRadius: BorderRadius.circular(3)),
-                    ),
-                    const SizedBox(width: 6),
-                    Text('${seg.$1} ${seg.$2}', style: t.bodySmall?.copyWith(color: AppColors.textSecondary)),
-                  ],
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FinanceGrid extends StatelessWidget {
-  const _FinanceGrid({required this.summary});
-  final DashboardSummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = summary;
-    final net = s.netCashFlowPaise;
-    final tiles = [
-      MetricTile(
-        icon: Icons.receipt_long_outlined,
-        label: 'Rent billed',
-        value: Money.format(s.rentBilledPaise),
-        caption: 'Invoices this period',
-      ),
-      MetricTile(
-        icon: Icons.account_balance_wallet_outlined,
-        label: 'Collected',
-        value: Money.format(s.rentCollectedPaise),
-        caption: 'Confirmed payments',
-        tone: AppColors.success,
-      ),
-      MetricTile(
-        icon: Icons.pending_actions_outlined,
-        label: 'Pending rent',
-        value: Money.format(s.outstandingPaise),
-        caption: 'All unpaid invoices',
-        tone: AppColors.warning,
-      ),
-      MetricTile(
-        icon: Icons.shopping_bag_outlined,
-        label: 'Expenses',
-        value: Money.format(s.expensesPaise),
-        caption: 'Paid this period',
-        tone: AppColors.danger,
-      ),
-    ];
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(child: tiles[0]),
-            const SizedBox(width: Gap.md),
-            Expanded(child: tiles[1]),
-          ],
-        ),
-        const SizedBox(height: Gap.md),
-        Row(
-          children: [
-            Expanded(child: tiles[2]),
-            const SizedBox(width: Gap.md),
-            Expanded(child: tiles[3]),
-          ],
-        ),
-        const SizedBox(height: Gap.md),
-        AppCard(
-          child: Row(
-            children: [
-              Icon(
-                net >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                color: net >= 0 ? AppColors.success : AppColors.danger,
-              ),
-              const SizedBox(width: Gap.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Net cash flow', style: Theme.of(context).textTheme.titleSmall),
-                    Text(
-                      'Collected minus expenses',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${net > 0
-                    ? '+'
-                    : net < 0
-                    ? '−'
-                    : ''}${Money.format(net.abs())}',
-                style: Theme.of(context).textTheme.titleMedium
-                    ?.copyWith(fontFeatures: AppTheme.tabular, color: net >= 0 ? AppColors.success : AppColors.danger),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _InlineEmpty extends StatelessWidget {
-  const _InlineEmpty({required this.icon, required this.text});
-  final IconData icon;
+  const _InlineEmpty({required this.text});
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.lg),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: AppColors.textMuted),
-          const SizedBox(width: Gap.md),
-          Expanded(
-            child: Text(text, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Gap.xs),
+      child: Text(text, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textMuted)),
     );
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.name, this.color = AppColors.primary});
-  final String name;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    final initials = parts.take(2).map((p) => p.isEmpty ? '' : p[0].toUpperCase()).join();
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: color.withValues(alpha: 0.10),
-      child: Text(
-        initials,
-        style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 14),
-      ),
-    );
-  }
-}
-
-class _DueList extends StatelessWidget {
-  const _DueList({required this.items, required this.emptyText, required this.overdue});
+class _PeopleList extends StatelessWidget {
+  const _PeopleList({required this.items, required this.emptyText, required this.overdue});
 
   final List<DueItem> items;
   final String emptyText;
@@ -774,30 +664,26 @@ class _DueList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return _InlineEmpty(icon: Icons.task_alt_rounded, text: emptyText);
-    final t = Theme.of(context).textTheme;
-    return AppCard(
-      padding: EdgeInsets.zero,
+    if (items.isEmpty) return _InlineEmpty(text: emptyText);
+    return Card(
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           for (final (i, d) in items.indexed) ...[
-            if (i > 0) const Divider(indent: 68),
+            if (i > 0) const Divider(indent: 64),
             ListTile(
-              minTileHeight: 64,
+              minTileHeight: 60,
               onTap: () => context.push('/tenants/${d.tenantId}'),
-              leading: _Avatar(name: d.tenantName, color: overdue ? AppColors.danger : AppColors.primary),
+              leading: PersonAvatar(name: d.tenantName),
               title: Text(d.tenantName, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(
                 [
                   d.roomLabel,
-                  overdue ? 'Due ${Dates.relativeDays(d.dueDate).toLowerCase()}' : null,
+                  overdue ? 'due ${Dates.relativeDays(d.dueDate).toLowerCase()}' : null,
                 ].whereType<String>().join(' · '),
-                style: t.bodySmall?.copyWith(color: overdue ? AppColors.danger : AppColors.textMuted),
+                style: TextStyle(color: overdue ? AppColors.danger : AppColors.textMuted),
               ),
-              trailing: Text(
-                Money.format(d.balancePaise),
-                style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular),
-              ),
+              trailing: Text(Money.format(d.balancePaise), style: AppTheme.figure(14.5)),
             ),
           ],
         ],
@@ -812,25 +698,22 @@ class _CheckoutList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return const _InlineEmpty(icon: Icons.event_available_outlined, text: 'No checkouts in the next 30 days.');
-    }
-    return AppCard(
-      padding: EdgeInsets.zero,
+    if (items.isEmpty) return const _InlineEmpty(text: 'No checkouts in the next 30 days.');
+    return Card(
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           for (final (i, c) in items.indexed) ...[
-            if (i > 0) const Divider(indent: 68),
+            if (i > 0) const Divider(indent: 64),
             ListTile(
-              minTileHeight: 64,
+              minTileHeight: 60,
               onTap: () => context.push('/tenants/${c.tenantId}/checkout'),
-              leading: _Avatar(name: c.tenantName, color: AppColors.info),
+              leading: PersonAvatar(name: c.tenantName),
               title: Text(c.tenantName, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: c.roomLabel == null ? null : Text(c.roomLabel!),
-              trailing: StatusPill(
-                label: Dates.relativeDays(c.date),
-                color: AppColors.info,
-                background: AppColors.infoSoft,
+              trailing: Text(
+                Dates.relativeDays(c.date),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppColors.info),
               ),
             ),
           ],
@@ -846,54 +729,44 @@ class _RecentList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return const _InlineEmpty(
-        icon: Icons.receipt_outlined,
-        text: 'Payments and expenses you record will appear here.',
-      );
-    }
+    if (items.isEmpty) return const _InlineEmpty(text: 'Payments and expenses you record will appear here.');
     final t = Theme.of(context).textTheme;
-    return AppCard(
-      padding: EdgeInsets.zero,
+    return Card(
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           for (final (i, r) in items.indexed) ...[
-            if (i > 0) const Divider(indent: 68),
-            ListTile(
-              minTileHeight: 64,
-              leading: CircleAvatar(
-                radius: 20,
-                backgroundColor: (r.amountPaise >= 0 ? AppColors.success : AppColors.danger).withValues(alpha: 0.10),
-                child: Icon(
-                  switch (r.type) {
-                    TransactionType.rentPayment => Icons.south_west_rounded,
-                    TransactionType.reversal => Icons.undo_rounded,
-                    TransactionType.expense => Icons.north_east_rounded,
-                  },
-                  size: 20,
-                  color: r.amountPaise >= 0 ? AppColors.success : AppColors.danger,
-                ),
-              ),
-              title: Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(
-                '${r.subtitle} · ${Dates.dayMonth(r.date)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: t.bodySmall?.copyWith(color: AppColors.textMuted),
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
+            if (i > 0) const Divider(indent: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
+              child: Row(
                 children: [
-                  Text(
-                    '${r.amountPaise >= 0 ? '+' : '−'}${Money.format(r.amountPaise.abs())}',
-                    style: t.titleSmall?.copyWith(
-                      fontFeatures: AppTheme.tabular,
-                      color: r.amountPaise >= 0 ? AppColors.success : AppColors.danger,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          r.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          '${Dates.dayMonth(r.date)} · ${r.subtitle}${r.pendingVerification ? ' · unverified' : ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.bodySmall?.copyWith(
+                            color: r.pendingVerification ? AppColors.warning : AppColors.textMuted,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  if (r.pendingVerification)
-                    Text('Unverified', style: t.labelSmall?.copyWith(color: AppColors.warning)),
+                  const SizedBox(width: Gap.md),
+                  Text(
+                    '${r.amountPaise >= 0 ? '+' : '−'}${Money.format(r.amountPaise.abs())}',
+                    style: AppTheme.figure(14.5, color: r.amountPaise >= 0 ? AppColors.success : AppColors.textPrimary),
+                  ),
                 ],
               ),
             ),
@@ -916,12 +789,12 @@ class _SetupCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.meeting_room_outlined, color: AppColors.primary, size: 32),
-          const SizedBox(height: Gap.md),
-          Text('Start by adding your rooms', style: t.titleMedium),
+          const Eyebrow('Getting started'),
+          const SizedBox(height: Gap.sm),
+          Text('Add your rooms and beds', style: t.titleMedium),
           const SizedBox(height: Gap.xs),
           Text(
-            'Add each room with its floor, beds and rent. Occupancy and bed availability are calculated from them.',
+            'Each room needs a floor, number of beds and rent. Occupancy, billing and the bed map all start from here.',
             style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: Gap.lg),
@@ -946,19 +819,11 @@ class _DashboardSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SkeletonBox(height: 200, radius: Radii.xl),
-          SizedBox(height: Gap.xl),
-          SkeletonBox(height: 20, width: 120),
+          SkeletonBox(height: 220, radius: Radii.lg),
           SizedBox(height: Gap.md),
-          SkeletonBox(height: 120, radius: Radii.lg),
+          SkeletonBox(height: 72, radius: Radii.lg),
           SizedBox(height: Gap.xl),
-          Row(
-            children: [
-              Expanded(child: SkeletonBox(height: 100, radius: Radii.lg)),
-              SizedBox(width: Gap.md),
-              Expanded(child: SkeletonBox(height: 100, radius: Radii.lg)),
-            ],
-          ),
+          SkeletonBox(height: 120, radius: Radii.lg),
         ],
       ),
     );

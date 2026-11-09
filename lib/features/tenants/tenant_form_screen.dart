@@ -59,6 +59,7 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
   final _formKey = GlobalKey<FormState>();
   Tenant? get _e => widget.existing;
   bool get _isEdit => _e != null;
+  bool get _settled => _e != null && (_e!.status == TenantStatus.checkedOut || _e!.status == TenantStatus.archived);
 
   late final _name = TextEditingController(text: _e?.fullName);
   late final _phone = TextEditingController(text: _e?.phone);
@@ -292,7 +293,12 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
                 icon: Icons.bed_outlined,
                 children: [
                   if (!_isEdit) ...[
-                    DateField(label: 'Joining date', value: _joining, onChanged: (d) => setState(() => _joining = d)),
+                    DateField(
+                      label: 'Joining date',
+                      value: _joining,
+                      last: Dates.today().add(const Duration(days: 60)),
+                      onChanged: (d) => setState(() => _joining = d),
+                    ),
                     _BedPicker(
                       value: _bedId,
                       onChanged: (bedId, rent) => setState(() {
@@ -324,7 +330,10 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
                     label: 'Security deposit',
                     allowZero: true,
                     required: false,
-                    helper: 'Held, not counted as income. Settled at checkout.',
+                    enabled: !_settled,
+                    helper: _settled
+                        ? 'Settled at checkout and can no longer be changed.'
+                        : 'Held, not counted as income. Settled at checkout.',
                   ),
                   if (!_isEdit) ...[
                     MoneyField(

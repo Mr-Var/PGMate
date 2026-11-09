@@ -2,7 +2,6 @@ import 'package:drift/drift.dart';
 
 import '../../utils/money.dart';
 import '../app_database.dart';
-import '../billing_math.dart';
 import '../enums.dart';
 import '../rules.dart';
 import '../tables/finance_tables.dart';
@@ -142,6 +141,7 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
     PaymentMethod advanceMethod = PaymentMethod.cash,
     String? advanceUpiReference,
     bool generateFirstInvoice = true,
+    DateTime? now,
   }) {
     return transaction(() async {
       await _checkPhone(input.phone);
@@ -166,14 +166,11 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
         );
       }
       if (bedId != null && generateFirstInvoice) {
-        final j = input.joiningDate;
-        await db.billingDao.createInvoice(
-          tenantId: id,
-          year: j.year,
-          month: j.month,
-          rentPaise: BillingMath.joiningMonthRent(input.monthlyRentPaise, j),
-          prorated: j.day > 1,
-        );
+        // Bill from the joining month up to this month, so a tenant entered
+        // with a past joining date has every month accounted for.
+        final today = now ?? DateTime.now();
+        final upTo = input.joiningDate.isAfter(today) ? input.joiningDate : today;
+        await db.billingDao.generateMissingFor(id, upTo);
       }
       await db.settingsDao.log('tenant', id, 'create', input.fullName);
       return id;
@@ -183,10 +180,17 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
   Future<void> updateTenant(int id, TenantInput input) {
     return transaction(() async {
       await _checkPhone(input.phone, exceptId: id);
+      final current = await (select(tenants)..where((t) => t.id.equals(id))).getSingle();
+      final settled = !currentStatuses.contains(current.status);
       final c = _companion(input);
-      // Deposit and advance are fixed at joining; changes go through payments.
+      // Advance and joining date are fixed at registration (they drive billing);
+      // the deposit is fixed once it has been settled at checkout.
       await (update(tenants)..where((t) => t.id.equals(id))).write(
-        c.copyWith(advancePaise: const Value.absent(), joiningDate: const Value.absent()),
+        c.copyWith(
+          advancePaise: const Value.absent(),
+          joiningDate: const Value.absent(),
+          securityDepositPaise: settled ? const Value.absent() : c.securityDepositPaise,
+        ),
       );
       await db.settingsDao.log('tenant', id, 'update');
     });

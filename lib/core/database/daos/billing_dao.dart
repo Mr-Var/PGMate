@@ -55,43 +55,81 @@ class CheckoutPreview {
     required this.finalMonthRentPaise,
     required this.finalMonthInvoiced,
     required this.outstandingPaise,
+    this.unbilledPaise = 0,
     required this.creditPaise,
     required this.depositPaise,
     required this.deductionsPaise,
+    this.refundPaise,
+    this.collectPaise,
   });
 
   final DateTime checkoutDate;
   final int daysInFinalMonth;
   final int monthlyRentPaise;
 
-  /// Prorated rent for the days stayed in the checkout month.
+  /// Rent for the days stayed in the checkout month.
   final int finalMonthRentPaise;
 
-  /// What the existing invoice for that month charges (0 if none).
+  /// What the existing invoice for that month charges as rent (0 if none).
   final int finalMonthInvoiced;
 
-  /// Unpaid balance on all invoices before any adjustment.
+  /// Unpaid balance on invoices up to the checkout month.
   final int outstandingPaise;
+
+  /// Rent for earlier months that were never invoiced (billed at checkout).
+  final int unbilledPaise;
   final int creditPaise;
   final int depositPaise;
   final int deductionsPaise;
 
-  /// Total the tenant owes after the final-month correction and deductions.
-  int get totalDuesPaise => max(0, outstandingPaise + (finalMonthRentPaise - finalMonthInvoiced) + deductionsPaise);
+  /// Exact settlement from a rolled-back dry run of the checkout.
+  final int? refundPaise;
+  final int? collectPaise;
 
-  int get _afterCredit => max(0, totalDuesPaise - creditPaise);
-  int get creditLeftPaise => max(0, creditPaise - totalDuesPaise);
+  CheckoutPreview withSettlement({required int refundPaise, required int collectPaise}) => CheckoutPreview(
+    checkoutDate: checkoutDate,
+    daysInFinalMonth: daysInFinalMonth,
+    monthlyRentPaise: monthlyRentPaise,
+    finalMonthRentPaise: finalMonthRentPaise,
+    finalMonthInvoiced: finalMonthInvoiced,
+    outstandingPaise: outstandingPaise,
+    unbilledPaise: unbilledPaise,
+    creditPaise: creditPaise,
+    depositPaise: depositPaise,
+    deductionsPaise: deductionsPaise,
+    refundPaise: refundPaise,
+    collectPaise: collectPaise,
+  );
+
+  /// Change to the final month: a new invoice for the days stayed, or the
+  /// reduction of an existing one (never an increase).
+  int get finalMonthAdjustmentPaise =>
+      finalMonthInvoiced == 0 ? finalMonthRentPaise : finalMonthRentPaise - finalMonthInvoiced;
+
+  /// Net owed before credit and deposit; negative means money comes back.
+  int get netDuesPaise => outstandingPaise + unbilledPaise + finalMonthAdjustmentPaise + deductionsPaise;
+
+  int get totalDuesPaise => max(0, netDuesPaise);
+  int get _credit => creditPaise + max(0, -netDuesPaise);
+  int get _afterCredit => max(0, totalDuesPaise - _credit);
+  int get creditLeftPaise => max(0, _credit - totalDuesPaise);
   int get depositUsedPaise => min(depositPaise, _afterCredit);
   int get depositRefundPaise => depositPaise - depositUsedPaise;
 
   /// Positive: owner refunds this. Negative: tenant must still pay this.
-  int get settlementPaise => depositRefundPaise + creditLeftPaise - (_afterCredit - depositUsedPaise);
+  int get settlementPaise => refundPaise != null && collectPaise != null
+      ? refundPaise! - collectPaise!
+      : depositRefundPaise + creditLeftPaise - (_afterCredit - depositUsedPaise);
 }
 
 class CheckoutResult {
   const CheckoutResult({required this.refundPaise, required this.toCollectPaise});
   final int refundPaise;
   final int toCollectPaise;
+}
+
+class _Rollback implements Exception {
+  const _Rollback();
 }
 
 class InvoiceView {
@@ -168,35 +206,88 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
 
   /// Generates invoices for every current tenant with a bed for the month.
   /// Existing invoices are skipped, so running it twice is safe.
+  /// The day rent starts: when the tenant first got a bed. Null if never.
+  Future<DateTime?> billingStart(int tenantId) async {
+    final row = await customSelect(
+      'SELECT MIN(start_date) AS s FROM allocations WHERE tenant_id = ?',
+      variables: [Variable.withInt(tenantId)],
+    ).getSingle();
+    final secs = row.read<int?>('s');
+    return secs == null ? null : Dates.today(DateTime.fromMillisecondsSinceEpoch(secs * 1000));
+  }
+
+  /// Months from the billing start up to [upTo] that have no invoice yet.
+  Future<List<DateTime>> missingMonths(int tenantId, DateTime upTo) async {
+    final start = await billingStart(tenantId);
+    if (start == null) return const [];
+    final billed = await customSelect(
+      "SELECT period_year AS y, period_month AS m FROM rent_invoices WHERE tenant_id = ? AND status <> 'cancelled'",
+      variables: [Variable.withInt(tenantId)],
+    ).get();
+    final have = {for (final r in billed) r.read<int>('y') * 100 + r.read<int>('m')};
+    return [
+      for (final m in BillingMath.monthsBetween(start, upTo))
+        if (!have.contains(m.year * 100 + m.month)) m,
+    ];
+  }
+
+  /// Bills every missing month for one tenant up to [upTo] (inclusive).
+  Future<int> generateMissingFor(int tenantId, DateTime upTo, {DateTime? today}) async {
+    final t = await (select(tenants)..where((x) => x.id.equals(tenantId))).getSingle();
+    final start = await billingStart(tenantId);
+    if (start == null) return 0;
+    final alloc = await (select(
+      allocations,
+    )..where((a) => a.tenantId.equals(tenantId) & a.isActive.equals(true))).getSingleOrNull();
+    var n = 0;
+    for (final m in await missingMonths(tenantId, upTo)) {
+      final rent = BillingMath.rentForMonth(t.monthlyRentPaise, start, m.year, m.month);
+      if (rent <= 0) continue;
+      final startsHere = start.year == m.year && start.month == m.month;
+      await _insertInvoice(
+        tenantId: tenantId,
+        allocationId: alloc?.id,
+        year: m.year,
+        month: m.month,
+        rentPaise: rent,
+        dueDate: BillingMath.dueDate(m.year, m.month, t.rentDueDay, start),
+        prorated: startsHere && start.day > 1,
+        today: today,
+      );
+      n++;
+    }
+    if (n > 0) await applyCredit(tenantId);
+    return n;
+  }
+
+  /// Bills one month for every current tenant with a bed. Safe to repeat.
   Future<GenerateResult> generateMonthlyInvoices(int year, int month, {DateTime? today}) {
     return transaction(() async {
-      final monthStart = DateTime(year, month);
       final monthEnd = DateTime(year, month + 1);
       final rows = await (select(tenants).join([
         innerJoin(allocations, allocations.tenantId.equalsExp(tenants.id) & allocations.isActive.equals(true)),
-      ])..where(tenants.status.isInValues(_current) & tenants.joiningDate.isSmallerThanValue(monthEnd))).get();
+      ])..where(tenants.status.isInValues(_current))).get();
 
       var created = 0;
       var skipped = 0;
       for (final row in rows) {
         final t = row.readTable(tenants);
         final a = row.readTable(allocations);
+        final start = await billingStart(t.id);
+        if (start == null || !start.isBefore(monthEnd)) continue;
         if (await invoiceFor(t.id, year, month) != null) {
           skipped++;
           continue;
         }
-        final joinedThisMonth = !t.joiningDate.isBefore(monthStart);
-        final rent = joinedThisMonth
-            ? BillingMath.joiningMonthRent(t.monthlyRentPaise, t.joiningDate)
-            : t.monthlyRentPaise;
+        final startsHere = start.year == year && start.month == month;
         await _insertInvoice(
           tenantId: t.id,
           allocationId: a.id,
           year: year,
           month: month,
-          rentPaise: rent,
-          dueDate: BillingMath.dueDate(year, month, t.rentDueDay, t.joiningDate),
-          prorated: joinedThisMonth && t.joiningDate.day > 1,
+          rentPaise: BillingMath.rentForMonth(t.monthlyRentPaise, start, year, month),
+          dueDate: BillingMath.dueDate(year, month, t.rentDueDay, start),
+          prorated: startsHere && start.day > 1,
           today: today,
         );
         await applyCredit(t.id);
@@ -204,6 +295,38 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       }
       await db.settingsDao.log('invoice', null, 'generate', '$year-$month: $created created, $skipped skipped');
       return GenerateResult(created, skipped);
+    });
+  }
+
+  /// Bills every month any current tenant is missing, up to this month.
+  Future<int> generateAllMissing({DateTime? now}) {
+    return transaction(() async {
+      final upTo = now ?? DateTime.now();
+      final ids = await customSelect(
+        """SELECT DISTINCT t.id FROM tenants t JOIN allocations a ON a.tenant_id = t.id AND a.is_active = 1
+           WHERE t.status IN ('newTenant','active','noticeGiven')""",
+      ).get();
+      var n = 0;
+      for (final r in ids) {
+        n += await generateMissingFor(r.read<int>('id'), upTo);
+      }
+      await db.settingsDao.log('invoice', null, 'generate_missing', '$n created');
+      return n;
+    });
+  }
+
+  /// Number of (tenant, month) invoices missing up to this month.
+  Stream<int> watchMissingInvoiceCount() {
+    return customSelect('SELECT 1', readsFrom: {tenants, allocations, rentInvoices}).watch().asyncMap((_) async {
+      final ids = await customSelect(
+        """SELECT DISTINCT t.id FROM tenants t JOIN allocations a ON a.tenant_id = t.id AND a.is_active = 1
+           WHERE t.status IN ('newTenant','active','noticeGiven')""",
+      ).get();
+      var n = 0;
+      for (final r in ids) {
+        n += (await missingMonths(r.read<int>('id'), DateTime.now())).length;
+      }
+      return n;
     });
   }
 
@@ -383,6 +506,20 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
     return '${reversal ? 'REV' : 'RCPT'}-${date.year}-${n.toString().padLeft(4, '0')}';
   }
 
+  /// UTRs are compared without case, spaces or dashes.
+  static String? normalizeUtr(String? raw) => raw?.toUpperCase().replaceAll(RegExp(r'[\s-]'), '');
+
+  /// Freezes the tenant's balance on a payment row once it counts, so a
+  /// reprinted receipt always shows the balance of that day.
+  Future<void> _freezeBalance(int paymentId, int tenantId) async {
+    final int bal = await tenantOutstanding(tenantId) - max(0, await tenantCredit(tenantId));
+    await customUpdate(
+      'UPDATE payments SET balance_after_paise = ? WHERE id = ?',
+      variables: [Variable.withInt(bal), Variable.withInt(paymentId)],
+      updates: {payments},
+    );
+  }
+
   /// Records money received. Cash (and pre-verified UPI) is confirmed and
   /// allocated immediately; unverified UPI waits for the owner's confirmation.
   Future<int> recordPayment(PaymentInput input) {
@@ -391,11 +528,16 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       throw RuleException('Enter the UPI transaction reference (UTR).');
     }
     return transaction(() async {
-      final utr = input.upiReference?.trim().toUpperCase();
+      final utr = normalizeUtr(input.upiReference);
       if (utr != null && utr.isNotEmpty) {
-        final dup = await (select(
-          payments,
-        )..where((p) => p.upiReference.equals(utr) & p.kind.equalsValue(PaymentKind.payment))).getSingleOrNull();
+        final dup =
+            await (select(payments)..where(
+                  (p) =>
+                      p.upiReference.equals(utr) &
+                      p.kind.equalsValue(PaymentKind.payment) &
+                      p.status.equalsValue(PaymentStatus.rejected).not(),
+                ))
+                .getSingleOrNull();
         if (dup != null) {
           throw RuleException('UTR $utr is already recorded on receipt ${dup.receiptNumber}.');
         }
@@ -415,7 +557,10 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
           verifiedAt: Value(confirmed && input.method == PaymentMethod.upi ? DateTime.now() : null),
         ),
       );
-      if (confirmed) await _allocate(id, input.tenantId, preferredInvoiceId: input.invoiceId);
+      if (confirmed) {
+        await _allocate(id, input.tenantId, preferredInvoiceId: input.invoiceId);
+        await _freezeBalance(id, input.tenantId);
+      }
       await db.settingsDao.log('payment', id, 'create', '${input.method.name} ${Money.format(input.amountPaise)}');
       return id;
     });
@@ -445,6 +590,7 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
         PaymentsCompanion(status: const Value(PaymentStatus.confirmed), verifiedAt: Value(DateTime.now())),
       );
       await _allocate(paymentId, p.tenantId);
+      await _freezeBalance(paymentId, p.tenantId);
       await db.settingsDao.log('payment', paymentId, 'verify');
     });
   }
@@ -504,6 +650,8 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
             .insert(PaymentAllocationsCompanion.insert(paymentId: revId, invoiceId: invoiceId, amountPaise: -amount));
         await _recompute(invoiceId);
       }
+      await applyCredit(p.tenantId);
+      await _freezeBalance(revId, p.tenantId);
       await db.settingsDao.log('payment', paymentId, 'reverse', reason);
       return revId;
     });
@@ -534,7 +682,8 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
               ..orderBy([(i) => OrderingTerm.asc(i.periodStart), (i) => OrderingTerm.asc(i.id)]))
             .get();
     if (preferredInvoiceId != null) {
-      open.sort((a, b) => a.id == preferredInvoiceId ? -1 : (b.id == preferredInvoiceId ? 1 : 0));
+      final i = open.indexWhere((x) => x.id == preferredInvoiceId);
+      if (i > 0) open.insert(0, open.removeAt(i));
     }
     for (final inv in open) {
       if (remaining <= 0) break;
@@ -591,31 +740,70 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
   // Checkout
   // ---------------------------------------------------------------------------
 
+  /// Breakdown for the checkout screen. The settlement figures come from a
+  /// dry run of [checkout] that is rolled back, so the preview always equals
+  /// what the real checkout will do.
   Future<CheckoutPreview> previewCheckout(int tenantId, DateTime checkoutDate, {int deductionsPaise = 0}) async {
+    final info = await _checkoutInfo(tenantId, checkoutDate, deductionsPaise: deductionsPaise);
+    final t = await (select(tenants)..where((x) => x.id.equals(tenantId))).getSingle();
+    if (!_current.contains(t.status)) return info;
+    CheckoutResult? dry;
+    try {
+      await transaction(() async {
+        dry = await checkout(tenantId, checkoutDate, deductionsPaise: deductionsPaise);
+        throw const _Rollback();
+      });
+    } on _Rollback {
+      // Expected: nothing from the dry run is kept.
+    }
+    return info.withSettlement(refundPaise: dry!.refundPaise, collectPaise: dry!.toCollectPaise);
+  }
+
+  Future<CheckoutPreview> _checkoutInfo(int tenantId, DateTime checkoutDate, {int deductionsPaise = 0}) async {
     final t = await (select(tenants)..where((x) => x.id.equals(tenantId))).getSingle();
     final date = Dates.today(checkoutDate);
     if (date.isBefore(Dates.today(t.joiningDate))) {
       throw RuleException('Checkout date cannot be before the joining date (${Dates.short(t.joiningDate)}).');
     }
+    final start = await billingStart(tenantId);
     final dim = BillingMath.daysInMonth(date.year, date.month);
-    final days = BillingMath.daysStayedInCheckoutMonth(t.joiningDate, date);
-    final finalRent = BillingMath.prorate(t.monthlyRentPaise, days, dim);
+    var days = 0;
+    var finalRent = 0;
+    var unbilled = 0;
+    if (start != null && !start.isAfter(date)) {
+      final startsThisMonth = start.year == date.year && start.month == date.month;
+      days = date.day - (startsThisMonth ? start.day : 1) + 1;
+      finalRent = BillingMath.prorate(t.monthlyRentPaise, days, dim);
+      final lastFull = DateTime(date.year, date.month - 1);
+      for (final m in await missingMonths(tenantId, lastFull)) {
+        unbilled += BillingMath.rentForMonth(t.monthlyRentPaise, start, m.year, m.month);
+      }
+    }
     final existing = await invoiceFor(tenantId, date.year, date.month);
+    // Checkout only ever lowers an existing final-month invoice.
+    if (existing != null) finalRent = min(finalRent, existing.rentPaise);
+    final later = await customSelect(
+      """SELECT COALESCE(SUM(total_paise - paid_paise), 0) AS bal, COALESCE(SUM(paid_paise), 0) AS paid
+         FROM rent_invoices WHERE tenant_id = ? AND status <> 'cancelled' AND period_start >= ?""",
+      variables: [Variable.withInt(tenantId), Variable.withDateTime(DateTime(date.year, date.month + 1))],
+    ).getSingle();
     return CheckoutPreview(
       checkoutDate: date,
       daysInFinalMonth: days,
       monthlyRentPaise: t.monthlyRentPaise,
       finalMonthRentPaise: finalRent,
       finalMonthInvoiced: existing?.rentPaise ?? 0,
-      outstandingPaise: await tenantOutstanding(tenantId),
-      creditPaise: max(0, await tenantCredit(tenantId)),
+      outstandingPaise: await tenantOutstanding(tenantId) - later.read<int>('bal'),
+      unbilledPaise: unbilled,
+      creditPaise: max(0, await tenantCredit(tenantId)) + later.read<int>('paid'),
       depositPaise: t.securityDepositPaise,
       deductionsPaise: deductionsPaise,
     );
   }
 
-  /// Final settlement: corrects the last month's rent, adds deductions,
-  /// uses credit and deposit against dues, refunds the rest, frees the bed.
+  /// Final settlement: bills any missing months, sets the last month to the
+  /// days stayed, cancels later invoices, adds deductions, uses credit then
+  /// the deposit against dues, refunds the rest and frees the bed.
   Future<CheckoutResult> checkout(
     int tenantId,
     DateTime checkoutDate, {
@@ -628,35 +816,56 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       final t = await (select(tenants)..where((x) => x.id.equals(tenantId))).getSingle();
       if (!_current.contains(t.status)) throw RuleException('${t.fullName} is already checked out.');
       final date = Dates.today(checkoutDate);
-      final preview = await previewCheckout(tenantId, date, deductionsPaise: deductionsPaise);
+      final preview = await _checkoutInfo(tenantId, date, deductionsPaise: deductionsPaise);
 
-      // 1. Final month rent: correct the existing invoice or create a prorated one.
+      // 1. Bill months before the checkout month that were never invoiced.
+      await generateMissingFor(tenantId, DateTime(date.year, date.month - 1));
+
+      // 2. Cancel invoices for months after checkout, returning paid money to credit.
+      final later =
+          await (select(rentInvoices)..where(
+                (i) =>
+                    i.tenantId.equals(tenantId) &
+                    i.status.equalsValue(InvoiceStatus.cancelled).not() &
+                    i.periodStart.isBiggerOrEqualValue(DateTime(date.year, date.month + 1)),
+              ))
+              .get();
+      for (final inv in later) {
+        if (inv.paidPaise > 0) {
+          await _releaseFromInvoice(inv.id, inv.paidPaise);
+          await _recompute(inv.id);
+        }
+        await (update(rentInvoices)..where((i) => i.id.equals(inv.id))).write(
+          RentInvoicesCompanion(
+            status: const Value(InvoiceStatus.cancelled),
+            cancelledAt: Value(DateTime.now()),
+            cancelReason: Value('Tenant checked out on ${Dates.short(date)}'),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+
+      // 3. Final month: correct the existing invoice or create one for the days stayed.
       final existing = await invoiceFor(tenantId, date.year, date.month);
       final alloc = await (select(
         allocations,
       )..where((a) => a.tenantId.equals(tenantId) & a.isActive.equals(true))).getSingleOrNull();
       int? finalInvoiceId = existing?.id;
+      final dayNote = preview.daysInFinalMonth > 0 ? 'Final month: ${preview.daysInFinalMonth} days' : null;
       if (existing != null) {
         final reduceBy = max(0, existing.rentPaise - preview.finalMonthRentPaise);
         final newDiscount = existing.discountPaise + reduceBy;
         final newAdditional = existing.additionalChargesPaise + deductionsPaise;
-        final newTotal = existing.rentPaise + newAdditional - newDiscount;
+        final newTotal = max(0, existing.rentPaise + newAdditional - newDiscount);
         if (newTotal < existing.paidPaise) {
-          // Return the overpaid part of this invoice to credit.
           await _releaseFromInvoice(existing.id, existing.paidPaise - newTotal);
         }
         await (update(rentInvoices)..where((i) => i.id.equals(existing.id))).write(
           RentInvoicesCompanion(
-            discountPaise: Value(newDiscount),
+            discountPaise: Value(min(newDiscount, existing.rentPaise + newAdditional)),
             additionalChargesPaise: Value(newAdditional),
             totalPaise: Value(newTotal),
-            notes: Value(
-              [
-                existing.notes,
-                'Final month: ${preview.daysInFinalMonth} days',
-                ?deductionNote,
-              ].whereType<String>().join('\n'),
-            ),
+            notes: Value([existing.notes, dayNote, deductionNote].whereType<String>().join('\n')),
             updatedAt: Value(DateTime.now()),
           ),
         );
@@ -671,11 +880,11 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
           additionalPaise: deductionsPaise,
           dueDate: date,
           prorated: preview.daysInFinalMonth < BillingMath.daysInMonth(date.year, date.month),
-          notes: ['Final month: ${preview.daysInFinalMonth} days', ?deductionNote].join('\n'),
+          notes: [dayNote, deductionNote].whereType<String>().join('\n'),
         );
       }
 
-      // 2. Use advance credit, then the deposit.
+      // 4. Use advance credit, then the deposit.
       await applyCredit(tenantId);
       final dues = await tenantOutstanding(tenantId);
       final depositUsed = min(t.securityDepositPaise, dues);
@@ -693,13 +902,14 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
           ),
         );
         await _allocate(id, tenantId, preferredInvoiceId: finalInvoiceId);
+        await _freezeBalance(id, tenantId);
       }
       final depositRefund = t.securityDepositPaise - depositUsed;
 
-      // 3. Refund unused advance credit as a negative entry.
+      // 5. Refund unused advance credit as a negative entry.
       final creditLeft = await tenantCredit(tenantId);
       if (creditLeft > 0) {
-        await into(payments).insert(
+        final refundId = await into(payments).insert(
           PaymentsCompanion.insert(
             transactionId: _txnId(),
             receiptNumber: await _receiptNumber(date, reversal: true),
@@ -712,9 +922,10 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
             notes: const Value('Refund of unused advance at checkout'),
           ),
         );
+        await _freezeBalance(refundId, tenantId);
       }
 
-      // 4. Close the allocation and free the bed.
+      // 6. Close the allocation and free the bed.
       if (alloc != null) {
         await (update(allocations)..where((a) => a.id.equals(alloc.id))).write(
           AllocationsCompanion(isActive: const Value(false), endDate: Value(date), endReason: const Value('checkout')),
@@ -734,13 +945,38 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
           updatedAt: Value(DateTime.now()),
         ),
       );
+      final int refund = depositRefund + max(0, creditLeft);
       await db.settingsDao.log(
         'tenant',
         tenantId,
         'checkout',
-        'deposit used ${Money.format(depositUsed)}, refunded ${Money.format(depositRefund + max(0, creditLeft))}, due ${Money.format(toCollect)}',
+        'deposit used ${Money.format(depositUsed)}, refunded ${Money.format(refund)}, due ${Money.format(toCollect)}',
       );
-      return CheckoutResult(refundPaise: depositRefund + max(0, creditLeft), toCollectPaise: toCollect);
+      return CheckoutResult(refundPaise: refund, toCollectPaise: toCollect);
+    });
+  }
+
+  /// Pays back a tenant's unused advance credit (e.g. a UPI payment that was
+  /// verified after checkout). Recorded as a negative entry, never deleted.
+  Future<int> refundCredit(int tenantId, PaymentMethod method, {DateTime? date}) {
+    return transaction(() async {
+      final credit = await tenantCredit(tenantId);
+      if (credit <= 0) throw RuleException('There is no advance credit to refund.');
+      final when = Dates.today(date);
+      final id = await into(payments).insert(PaymentsCompanion.insert(
+        transactionId: _txnId(),
+        receiptNumber: await _receiptNumber(when, reversal: true),
+        tenantId: tenantId,
+        amountPaise: -credit,
+        method: method,
+        paymentDate: when,
+        status: PaymentStatus.confirmed,
+        kind: const Value(PaymentKind.reversal),
+        notes: const Value('Refund of advance credit'),
+      ));
+      await _freezeBalance(id, tenantId);
+      await db.settingsDao.log('payment', id, 'refund_credit', Money.format(credit));
+      return id;
     });
   }
 
@@ -915,6 +1151,7 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
       'SELECT $_roomLabelSql AS l FROM tenants t WHERE t.id = ?',
       variables: [Variable.withInt(t.id)],
     ).getSingle();
+    final asOf = p.balanceAfterPaise ?? await _balanceAsOf(p);
     return ReceiptData(
       profile: profile,
       tenant: t,
@@ -929,8 +1166,23 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
               amountPaise: l.read<int>('a'),
             ),
       ],
-      outstandingPaise: await tenantOutstanding(t.id),
-      creditPaise: max(0, await tenantCredit(t.id)),
+      outstandingPaise: max(0, asOf),
+      creditPaise: max(0, -asOf),
     );
+  }
+
+  /// Balance as it stood right after [p] was recorded: everything billed up
+  /// to then minus every confirmed payment up to and including this one.
+  /// Reprinted receipts therefore keep showing the balance of that day.
+  Future<int> _balanceAsOf(Payment p) async {
+    final row = await customSelect(
+      '''SELECT
+           COALESCE((SELECT SUM(total_paise) FROM rent_invoices
+                      WHERE tenant_id = ?1 AND status <> 'cancelled' AND created_at <= ?2), 0)
+         - COALESCE((SELECT SUM(amount_paise) FROM payments
+                      WHERE tenant_id = ?1 AND status = 'confirmed' AND id <= ?3), 0) AS v''',
+      variables: [Variable.withInt(p.tenantId), Variable.withDateTime(p.createdAt), Variable.withInt(p.id)],
+    ).getSingle();
+    return row.read<int>('v');
   }
 }

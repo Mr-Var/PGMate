@@ -95,8 +95,8 @@ void main() {
     await settle(tester);
 
     expect(find.text('Sunrise PG'), findsOneWidget);
-    expect(find.textContaining('Good'), findsOneWidget);
-    expect(find.text('Rent collected'), findsOneWidget);
+    expect(find.textContaining('RENT RECEIVED'), findsOneWidget);
+    expect(find.text('OUTSTANDING'), findsOneWidget);
     // 3 beds from the database, 0 occupied.
     expect(find.text('0%'), findsOneWidget);
     expect(find.text('3'), findsWidgets);

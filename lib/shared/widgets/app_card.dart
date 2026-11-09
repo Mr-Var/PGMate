@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 
+/// Hairline-bordered surface. Cards group content; they are not decoration.
 class AppCard extends StatelessWidget {
   const AppCard({super.key, required this.child, this.padding = const EdgeInsets.all(Gap.lg), this.onTap});
 
@@ -22,6 +23,21 @@ class AppCard extends StatelessWidget {
   }
 }
 
+/// Small uppercase label used above sections and figures.
+class Eyebrow extends StatelessWidget {
+  const Eyebrow(this.text, {super.key, this.color});
+  final String text;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text.toUpperCase(),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: AppTheme.eyebrow.copyWith(color: color ?? AppColors.textMuted),
+  );
+}
+
 class SectionHeader extends StatelessWidget {
   const SectionHeader({super.key, required this.title, this.trailing, this.count});
 
@@ -31,45 +47,43 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.only(top: Gap.xl, bottom: Gap.md),
-      child: Row(
-        children: [
-          Semantics(header: true, child: Text(title, style: t.titleMedium)),
-          if (count != null && count! > 0) ...[
-            const SizedBox(width: Gap.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: AppColors.surfaceMuted, borderRadius: BorderRadius.circular(Radii.xl)),
-              child: Text('$count', style: t.labelMedium?.copyWith(color: AppColors.textSecondary)),
+      padding: const EdgeInsets.only(top: Gap.xl, bottom: Gap.sm),
+      child: SizedBox(
+        height: 32,
+        child: Row(
+          children: [
+            Flexible(
+              child: Semantics(header: true, child: Eyebrow(count != null && count! > 0 ? '$title · $count' : title)),
             ),
+            const Spacer(),
+            ?trailing,
           ],
-          const Spacer(),
-          ?trailing,
-        ],
+        ),
       ),
     );
   }
 }
 
-/// A labelled metric with an icon, for dashboard grids.
+/// A labelled figure: label, large tabular value, optional caption.
+/// [tone] colours a small marker so semantics never rely on the number alone.
 class MetricTile extends StatelessWidget {
   const MetricTile({
     super.key,
-    required this.icon,
+    this.icon,
     required this.label,
     required this.value,
     this.caption,
-    this.tone = AppColors.primary,
+    this.tone,
     this.valueColor,
   });
 
-  final IconData icon;
+  /// Kept for call-site compatibility; the refined style shows no icon.
+  final IconData? icon;
   final String label;
   final String value;
   final String? caption;
-  final Color tone;
+  final Color? tone;
   final Color? valueColor;
 
   @override
@@ -80,43 +94,28 @@ class MetricTile extends StatelessWidget {
       label: '$label: $value${caption == null ? '' : ', $caption'}',
       excludeSemantics: true,
       child: AppCard(
-        padding: const EdgeInsets.all(Gap.lg),
+        padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md + 2, Gap.lg, Gap.md + 2),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: tone.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(Radii.sm),
+                if (tone != null) ...[
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
                   ),
-                  child: Icon(icon, size: 18, color: tone),
-                ),
-                const SizedBox(width: Gap.sm),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.labelMedium?.copyWith(color: AppColors.textSecondary),
-                  ),
-                ),
+                  const SizedBox(width: 6),
+                ],
+                Expanded(child: Eyebrow(label)),
               ],
             ),
-            const SizedBox(height: Gap.md),
+            const SizedBox(height: Gap.sm),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                style: t.titleLarge?.copyWith(
-                  fontFeatures: AppTheme.tabular,
-                  color: valueColor ?? AppColors.textPrimary,
-                ),
-              ),
+              child: Text(value, style: AppTheme.figure(22, color: valueColor)),
             ),
             if (caption != null) ...[
               const SizedBox(height: 2),
@@ -129,6 +128,42 @@ class MetricTile extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Key/value row used in detail screens.
+class InfoRow extends StatelessWidget {
+  const InfoRow({super.key, required this.label, required this.value, this.strong = false, this.valueColor});
+  final String label;
+  final String value;
+  final bool strong;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(label, style: t.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+          ),
+          const SizedBox(width: Gap.md),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: (strong ? t.titleSmall : t.bodyMedium)?.copyWith(
+                fontFeatures: AppTheme.tabular,
+                color: valueColor,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

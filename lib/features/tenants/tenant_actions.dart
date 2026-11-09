@@ -162,7 +162,15 @@ Future<void> showNoticeSheet(BuildContext context, WidgetRef ref, TenantDetail d
                 style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: Gap.lg),
-              DateField(label: 'Notice given on', value: notice, onChanged: (v) => setState(() => notice = v)),
+              DateField(
+                label: 'Notice given on',
+                value: notice,
+                onChanged: (v) => setState(() {
+                  notice = v;
+                  // Keep the checkout on or after the notice date.
+                  if (leave.isBefore(v)) leave = v.add(const Duration(days: 30));
+                }),
+              ),
               const SizedBox(height: Gap.lg),
               DateField(
                 label: 'Expected checkout',

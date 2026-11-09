@@ -65,6 +65,37 @@ class OpsDao extends DatabaseAccessor<AppDatabase> with _$OpsDaoMixin {
     });
   }
 
+  /// Replaces an expense with a corrected copy in one step: the new entry is
+  /// saved and the original is voided together, or neither happens.
+  Future<int> correctExpense(
+    int originalId, {
+    required String title,
+    required ExpenseCategory category,
+    required int amountPaise,
+    required DateTime date,
+    required PaymentMethod method,
+    String? vendor,
+    String? billPath,
+    String? notes,
+  }) {
+    return transaction(() async {
+      final orig = await (select(expenses)..where((e) => e.id.equals(originalId))).getSingle();
+      if (orig.isVoided) throw RuleException('This expense was already voided.');
+      final id = await addExpense(
+        title: title,
+        category: category,
+        amountPaise: amountPaise,
+        date: date,
+        method: method,
+        vendor: vendor,
+        billPath: billPath,
+        notes: notes,
+      );
+      await voidExpense(originalId, 'Corrected: replaced by entry #$id');
+      return id;
+    });
+  }
+
   /// Expenses are never deleted; a voided expense is excluded from totals.
   Future<void> voidExpense(int id, String reason) {
     return transaction(() async {

@@ -94,7 +94,7 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
   Future<ReportTable> _summary(DateRange r) async {
     final s = Variable.withDateTime(r.start), e = Variable.withDateTime(r.end);
     final billed = await _scalar(
-      "SELECT SUM(total_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_start >= ? AND period_start < ?",
+      "SELECT SUM(total_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_end > ? AND period_start < ?",
       [s, e],
     );
     Future<int> coll(String method) => _scalar(
@@ -507,7 +507,7 @@ class ReportsDao extends DatabaseAccessor<AppDatabase> with _$ReportsDaoMixin {
       final r = DateRange.month(n.year, n.month - i);
       final s = Variable.withDateTime(r.start), e = Variable.withDateTime(r.end);
       final billed = await _scalar(
-        "SELECT SUM(total_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_start >= ? AND period_start < ?",
+        "SELECT SUM(total_paise) AS v FROM rent_invoices WHERE status <> 'cancelled' AND period_end > ? AND period_start < ?",
         [s, e],
       );
       final collected = await _scalar(

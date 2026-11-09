@@ -60,6 +60,10 @@ class Payments extends Table {
   IntColumn get reversesPaymentId => integer().nullable().references(Payments, #id, onDelete: KeyAction.restrict)();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get verifiedAt => dateTime().nullable()();
+
+  /// Tenant balance right after this payment counted (positive = still due,
+  /// negative = advance credit). Frozen so reprinted receipts never change.
+  IntColumn get balanceAfterPaise => integer().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 

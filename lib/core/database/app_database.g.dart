@@ -4068,6 +4068,15 @@ class $PaymentsTable extends Payments with TableInfo<$PaymentsTable, Payment> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _balanceAfterPaiseMeta = const VerificationMeta('balanceAfterPaise');
+  @override
+  late final GeneratedColumn<int> balanceAfterPaise = GeneratedColumn<int>(
+    'balance_after_paise',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
   @override
   late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
@@ -4093,6 +4102,7 @@ class $PaymentsTable extends Payments with TableInfo<$PaymentsTable, Payment> {
     reversesPaymentId,
     notes,
     verifiedAt,
+    balanceAfterPaise,
     createdAt,
   ];
   @override
@@ -4153,6 +4163,12 @@ class $PaymentsTable extends Payments with TableInfo<$PaymentsTable, Payment> {
     if (data.containsKey('verified_at')) {
       context.handle(_verifiedAtMeta, verifiedAt.isAcceptableOrUnknown(data['verified_at']!, _verifiedAtMeta));
     }
+    if (data.containsKey('balance_after_paise')) {
+      context.handle(
+        _balanceAfterPaiseMeta,
+        balanceAfterPaise.isAcceptableOrUnknown(data['balance_after_paise']!, _balanceAfterPaiseMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta, createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
     }
@@ -4187,6 +4203,10 @@ class $PaymentsTable extends Payments with TableInfo<$PaymentsTable, Payment> {
       ),
       notes: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}notes']),
       verifiedAt: attachedDatabase.typeMapping.read(DriftSqlType.dateTime, data['${effectivePrefix}verified_at']),
+      balanceAfterPaise: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}balance_after_paise'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
     );
   }
@@ -4223,6 +4243,10 @@ class Payment extends DataClass implements Insertable<Payment> {
   final int? reversesPaymentId;
   final String? notes;
   final DateTime? verifiedAt;
+
+  /// Tenant balance right after this payment counted (positive = still due,
+  /// negative = advance credit). Frozen so reprinted receipts never change.
+  final int? balanceAfterPaise;
   final DateTime createdAt;
   const Payment({
     required this.id,
@@ -4238,6 +4262,7 @@ class Payment extends DataClass implements Insertable<Payment> {
     this.reversesPaymentId,
     this.notes,
     this.verifiedAt,
+    this.balanceAfterPaise,
     required this.createdAt,
   });
   @override
@@ -4270,6 +4295,9 @@ class Payment extends DataClass implements Insertable<Payment> {
     if (!nullToAbsent || verifiedAt != null) {
       map['verified_at'] = Variable<DateTime>(verifiedAt);
     }
+    if (!nullToAbsent || balanceAfterPaise != null) {
+      map['balance_after_paise'] = Variable<int>(balanceAfterPaise);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -4289,6 +4317,7 @@ class Payment extends DataClass implements Insertable<Payment> {
       reversesPaymentId: reversesPaymentId == null && nullToAbsent ? const Value.absent() : Value(reversesPaymentId),
       notes: notes == null && nullToAbsent ? const Value.absent() : Value(notes),
       verifiedAt: verifiedAt == null && nullToAbsent ? const Value.absent() : Value(verifiedAt),
+      balanceAfterPaise: balanceAfterPaise == null && nullToAbsent ? const Value.absent() : Value(balanceAfterPaise),
       createdAt: Value(createdAt),
     );
   }
@@ -4309,6 +4338,7 @@ class Payment extends DataClass implements Insertable<Payment> {
       reversesPaymentId: serializer.fromJson<int?>(json['reversesPaymentId']),
       notes: serializer.fromJson<String?>(json['notes']),
       verifiedAt: serializer.fromJson<DateTime?>(json['verifiedAt']),
+      balanceAfterPaise: serializer.fromJson<int?>(json['balanceAfterPaise']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -4329,6 +4359,7 @@ class Payment extends DataClass implements Insertable<Payment> {
       'reversesPaymentId': serializer.toJson<int?>(reversesPaymentId),
       'notes': serializer.toJson<String?>(notes),
       'verifiedAt': serializer.toJson<DateTime?>(verifiedAt),
+      'balanceAfterPaise': serializer.toJson<int?>(balanceAfterPaise),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -4347,6 +4378,7 @@ class Payment extends DataClass implements Insertable<Payment> {
     Value<int?> reversesPaymentId = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     Value<DateTime?> verifiedAt = const Value.absent(),
+    Value<int?> balanceAfterPaise = const Value.absent(),
     DateTime? createdAt,
   }) => Payment(
     id: id ?? this.id,
@@ -4362,6 +4394,7 @@ class Payment extends DataClass implements Insertable<Payment> {
     reversesPaymentId: reversesPaymentId.present ? reversesPaymentId.value : this.reversesPaymentId,
     notes: notes.present ? notes.value : this.notes,
     verifiedAt: verifiedAt.present ? verifiedAt.value : this.verifiedAt,
+    balanceAfterPaise: balanceAfterPaise.present ? balanceAfterPaise.value : this.balanceAfterPaise,
     createdAt: createdAt ?? this.createdAt,
   );
   Payment copyWithCompanion(PaymentsCompanion data) {
@@ -4379,6 +4412,7 @@ class Payment extends DataClass implements Insertable<Payment> {
       reversesPaymentId: data.reversesPaymentId.present ? data.reversesPaymentId.value : this.reversesPaymentId,
       notes: data.notes.present ? data.notes.value : this.notes,
       verifiedAt: data.verifiedAt.present ? data.verifiedAt.value : this.verifiedAt,
+      balanceAfterPaise: data.balanceAfterPaise.present ? data.balanceAfterPaise.value : this.balanceAfterPaise,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -4399,6 +4433,7 @@ class Payment extends DataClass implements Insertable<Payment> {
           ..write('reversesPaymentId: $reversesPaymentId, ')
           ..write('notes: $notes, ')
           ..write('verifiedAt: $verifiedAt, ')
+          ..write('balanceAfterPaise: $balanceAfterPaise, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -4419,6 +4454,7 @@ class Payment extends DataClass implements Insertable<Payment> {
     reversesPaymentId,
     notes,
     verifiedAt,
+    balanceAfterPaise,
     createdAt,
   );
   @override
@@ -4438,6 +4474,7 @@ class Payment extends DataClass implements Insertable<Payment> {
           other.reversesPaymentId == this.reversesPaymentId &&
           other.notes == this.notes &&
           other.verifiedAt == this.verifiedAt &&
+          other.balanceAfterPaise == this.balanceAfterPaise &&
           other.createdAt == this.createdAt);
 }
 
@@ -4455,6 +4492,7 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
   final Value<int?> reversesPaymentId;
   final Value<String?> notes;
   final Value<DateTime?> verifiedAt;
+  final Value<int?> balanceAfterPaise;
   final Value<DateTime> createdAt;
   const PaymentsCompanion({
     this.id = const Value.absent(),
@@ -4470,6 +4508,7 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
     this.reversesPaymentId = const Value.absent(),
     this.notes = const Value.absent(),
     this.verifiedAt = const Value.absent(),
+    this.balanceAfterPaise = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   PaymentsCompanion.insert({
@@ -4486,6 +4525,7 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
     this.reversesPaymentId = const Value.absent(),
     this.notes = const Value.absent(),
     this.verifiedAt = const Value.absent(),
+    this.balanceAfterPaise = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : transactionId = Value(transactionId),
        receiptNumber = Value(receiptNumber),
@@ -4508,6 +4548,7 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
     Expression<int>? reversesPaymentId,
     Expression<String>? notes,
     Expression<DateTime>? verifiedAt,
+    Expression<int>? balanceAfterPaise,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -4524,6 +4565,7 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
       if (reversesPaymentId != null) 'reverses_payment_id': reversesPaymentId,
       if (notes != null) 'notes': notes,
       if (verifiedAt != null) 'verified_at': verifiedAt,
+      if (balanceAfterPaise != null) 'balance_after_paise': balanceAfterPaise,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -4542,6 +4584,7 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
     Value<int?>? reversesPaymentId,
     Value<String?>? notes,
     Value<DateTime?>? verifiedAt,
+    Value<int?>? balanceAfterPaise,
     Value<DateTime>? createdAt,
   }) {
     return PaymentsCompanion(
@@ -4558,6 +4601,7 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
       reversesPaymentId: reversesPaymentId ?? this.reversesPaymentId,
       notes: notes ?? this.notes,
       verifiedAt: verifiedAt ?? this.verifiedAt,
+      balanceAfterPaise: balanceAfterPaise ?? this.balanceAfterPaise,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -4604,6 +4648,9 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
     if (verifiedAt.present) {
       map['verified_at'] = Variable<DateTime>(verifiedAt.value);
     }
+    if (balanceAfterPaise.present) {
+      map['balance_after_paise'] = Variable<int>(balanceAfterPaise.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -4626,6 +4673,7 @@ class PaymentsCompanion extends UpdateCompanion<Payment> {
           ..write('reversesPaymentId: $reversesPaymentId, ')
           ..write('notes: $notes, ')
           ..write('verifiedAt: $verifiedAt, ')
+          ..write('balanceAfterPaise: $balanceAfterPaise, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -10218,6 +10266,7 @@ typedef $$PaymentsTableCreateCompanionBuilder = PaymentsCompanion Function({
   Value<int?> reversesPaymentId,
   Value<String?> notes,
   Value<DateTime?> verifiedAt,
+  Value<int?> balanceAfterPaise,
   Value<DateTime> createdAt,
 });
 typedef $$PaymentsTableUpdateCompanionBuilder = PaymentsCompanion Function({
@@ -10234,6 +10283,7 @@ typedef $$PaymentsTableUpdateCompanionBuilder = PaymentsCompanion Function({
   Value<int?> reversesPaymentId,
   Value<String?> notes,
   Value<DateTime?> verifiedAt,
+  Value<int?> balanceAfterPaise,
   Value<DateTime> createdAt,
 });
 
@@ -10317,6 +10367,9 @@ class $$PaymentsTableFilterComposer extends Composer<_$AppDatabase, $PaymentsTab
 
   ColumnFilters<DateTime> get verifiedAt =>
       $composableBuilder(column: $table.verifiedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get balanceAfterPaise =>
+      $composableBuilder(column: $table.balanceAfterPaise, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -10416,6 +10469,9 @@ class $$PaymentsTableOrderingComposer extends Composer<_$AppDatabase, $PaymentsT
   ColumnOrderings<DateTime> get verifiedAt =>
       $composableBuilder(column: $table.verifiedAt, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get balanceAfterPaise =>
+      $composableBuilder(column: $table.balanceAfterPaise, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -10493,6 +10549,9 @@ class $$PaymentsTableAnnotationComposer extends Composer<_$AppDatabase, $Payment
 
   GeneratedColumn<DateTime> get verifiedAt =>
       $composableBuilder(column: $table.verifiedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get balanceAfterPaise =>
+      $composableBuilder(column: $table.balanceAfterPaise, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -10591,6 +10650,7 @@ class $$PaymentsTableTableManager
                 Value<int?> reversesPaymentId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime?> verifiedAt = const Value.absent(),
+                Value<int?> balanceAfterPaise = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => PaymentsCompanion(
                 id: id,
@@ -10606,6 +10666,7 @@ class $$PaymentsTableTableManager
                 reversesPaymentId: reversesPaymentId,
                 notes: notes,
                 verifiedAt: verifiedAt,
+                balanceAfterPaise: balanceAfterPaise,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -10623,6 +10684,7 @@ class $$PaymentsTableTableManager
                 Value<int?> reversesPaymentId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime?> verifiedAt = const Value.absent(),
+                Value<int?> balanceAfterPaise = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => PaymentsCompanion.insert(
                 id: id,
@@ -10638,6 +10700,7 @@ class $$PaymentsTableTableManager
                 reversesPaymentId: reversesPaymentId,
                 notes: notes,
                 verifiedAt: verifiedAt,
+                balanceAfterPaise: balanceAfterPaise,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

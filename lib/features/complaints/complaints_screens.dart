@@ -244,7 +244,7 @@ class _ComplaintFormScreenState extends ConsumerState<ComplaintFormScreen> {
               children: [
                 DropdownButtonFormField<int?>(
                   isExpanded: true,
-                  initialValue: _tenantId,
+                  initialValue: tenants.any((x) => x.tenant.id == _tenantId) ? _tenantId : null,
                   decoration: const InputDecoration(labelText: 'Tenant (optional)'),
                   items: [
                     const DropdownMenuItem<int?>(value: null, child: Text('Not tenant-specific')),

@@ -63,35 +63,31 @@ class EmptyState extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(Gap.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(Radii.xl),
-              ),
-              child: Icon(icon, size: 32, color: AppColors.primary),
-            ),
-            const SizedBox(height: Gap.lg),
-            Text(title, style: t.titleMedium, textAlign: TextAlign.center),
-            const SizedBox(height: Gap.sm),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: Text(
+        padding: const EdgeInsets.symmetric(horizontal: Gap.xxl, vertical: Gap.xl),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 36, color: AppColors.borderStrong),
+              const SizedBox(height: Gap.lg),
+              Text(title, style: t.titleMedium, textAlign: TextAlign.center),
+              const SizedBox(height: Gap.xs + 2),
+              Text(
                 message,
                 style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: Gap.xl),
-              FilledButton.icon(onPressed: onAction, icon: const Icon(Icons.add_rounded), label: Text(actionLabel!)),
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(height: Gap.xl),
+                OutlinedButton.icon(
+                  onPressed: onAction,
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: Text(actionLabel!),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -118,28 +114,44 @@ class ErrorState extends StatelessWidget {
 
 /// Compact coloured label used for statuses. Always pairs colour with text
 /// so meaning never depends on colour alone.
+/// Status shown as a coloured dot plus text on a faint tint. Meaning is in
+/// the words; colour only helps scanning.
 class StatusPill extends StatelessWidget {
   const StatusPill({super.key, required this.label, required this.color, required this.background, this.icon});
 
   final String label;
   final Color color;
   final Color background;
+
+  /// Optional; replaces the dot when set.
   final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(Radii.xl)),
+      padding: const EdgeInsets.fromLTRB(7, 3, 8, 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(Radii.sm),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[Icon(icon, size: 14, color: color), const SizedBox(width: 4)],
+          if (icon != null)
+            Icon(icon, size: 12, color: color)
+          else
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+          const SizedBox(width: 5),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color, height: 1.2),
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: color, height: 1.2),
           ),
         ],
       ),

@@ -89,7 +89,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
               children: [
                 DropdownButtonFormField<int>(
                   isExpanded: true,
-                  initialValue: _tenantId,
+                  initialValue: tenants.any((x) => x.tenant.id == _tenantId) ? _tenantId : null,
                   decoration: const InputDecoration(labelText: 'Tenant'),
                   items: [
                     for (final x in tenants)

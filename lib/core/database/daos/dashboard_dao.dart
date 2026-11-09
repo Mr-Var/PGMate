@@ -64,6 +64,7 @@ class DashboardSummary {
     required this.reservedBeds,
     required this.maintenanceBeds,
     required this.rentBilledPaise,
+    required this.billedPaidPaise,
     required this.rentCollectedPaise,
     required this.outstandingPaise,
     required this.expensesPaise,
@@ -81,6 +82,11 @@ class DashboardSummary {
   final int reservedBeds;
   final int maintenanceBeds;
   final int rentBilledPaise;
+
+  /// How much of the period's invoices has been paid (whenever it was paid).
+  final int billedPaidPaise;
+
+  /// Money received during the period (cash basis, any month's rent).
   final int rentCollectedPaise;
   final int outstandingPaise;
   final int expensesPaise;
@@ -94,8 +100,9 @@ class DashboardSummary {
   int get netCashFlowPaise => rentCollectedPaise - expensesPaise;
   double get occupancy => totalBeds == 0 ? 0 : occupiedBeds / totalBeds;
 
-  /// Collection rate for invoices billed in the selected range.
-  double get collectionRate => rentBilledPaise == 0 ? 0 : (rentCollectedPaise / rentBilledPaise).clamp(0, 1);
+  /// Share of this period's invoices that is paid. Compares like with like:
+  /// payments applied to these invoices, not all money received this month.
+  double get collectionRate => rentBilledPaise == 0 ? 0 : (billedPaidPaise / rentBilledPaise).clamp(0, 1);
 }
 
 @DriftAccessor(tables: [Rooms, Beds, Tenants, Allocations, RentInvoices, Payments, Expenses])
@@ -145,9 +152,15 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
       WHERE b.is_active = 1
       ''').getSingle();
 
+    final billedPaid = await scalar(
+      'SELECT SUM(paid_paise) AS v FROM rent_invoices '
+      'WHERE status <> ? AND period_end > ? AND period_start < ?',
+      [cancelled, start, end],
+    );
+
     final billed = await scalar(
       'SELECT SUM(total_paise) AS v FROM rent_invoices '
-      'WHERE status <> ? AND period_start >= ? AND period_start < ?',
+      'WHERE status <> ? AND period_end > ? AND period_start < ?',
       [cancelled, start, end],
     );
 
@@ -241,6 +254,7 @@ class DashboardDao extends DatabaseAccessor<AppDatabase> with _$DashboardDaoMixi
       reservedBeds: bedRow.read<int?>('reserved') ?? 0,
       maintenanceBeds: bedRow.read<int?>('maintenance') ?? 0,
       rentBilledPaise: billed,
+      billedPaidPaise: billedPaid,
       rentCollectedPaise: collected,
       outstandingPaise: outstanding,
       expensesPaise: expenseTotal,

@@ -51,6 +51,7 @@ void main() {
         advancePaise: advance,
       ),
       bedId: b,
+      now: DateTime(2026, 11, 20),
     );
   }
 
@@ -414,6 +415,132 @@ void main() {
       }
       final ledger = await db.reportsDao.build(ReportType.tenantLedger, DateRange.month(2026, 11), tenantId: id);
       expect(ledger.rows.last.last, '₹6,000');
+    });
+  });
+
+  group('Audit fixes', () {
+    test('a tenant entered with a past joining date is billed for every month since', () async {
+      final id = await db.tenantsDao.createTenant(
+        TenantInput(
+          fullName: 'Chetan Rao',
+          phone: '9876500003',
+          gender: Gender.male,
+          joiningDate: DateTime(2026, 8, 16),
+          monthlyRentPaise: 930000,
+          rentDueDay: 5,
+        ),
+        bedId: (await beds()).first,
+        now: DateTime(2026, 11, 20),
+      );
+      final list = await invoices(id);
+      expect(list.map((i) => i.periodMonth), [8, 9, 10, 11]);
+      expect(list.first.rentPaise, BillingMath.joiningMonthRent(930000, DateTime(2026, 8, 16)));
+      expect(list.skip(1).every((i) => i.rentPaise == 930000), isTrue);
+    });
+
+    test('rent starts when the bed is assigned, not at registration', () async {
+      final id = await db.tenantsDao.createTenant(
+        TenantInput(
+          fullName: 'Deepak Nair',
+          phone: '9876500004',
+          gender: Gender.male,
+          joiningDate: DateTime(2026, 11, 1),
+          monthlyRentPaise: 900000,
+          rentDueDay: 5,
+        ),
+      );
+      await db.tenantsDao.assignBed(id, (await beds()).first, DateTime(2026, 11, 16));
+      await db.billingDao.generateMonthlyInvoices(2026, 11);
+      final inv = (await invoices(id)).single;
+      expect(inv.rentPaise, 450000, reason: '15 of 30 days from the bed date');
+      expect(inv.dueDate, DateTime(2026, 11, 16));
+    });
+
+    test('checkout bills months that were never invoiced', () async {
+      final id = await newTenant(deposit: 0); // November invoiced at registration
+      final p = await db.billingDao.previewCheckout(id, DateTime(2027, 1, 10));
+      expect(p.unbilledPaise, 900000, reason: 'December was never generated');
+      final r = await db.billingDao.checkout(id, DateTime(2027, 1, 10));
+      final months = (await invoices(id)).where((i) => i.status != InvoiceStatus.cancelled).map((i) => i.periodMonth);
+      expect(months, [11, 12, 1]);
+      expect(r.toCollectPaise, 900000 + 900000 + BillingMath.prorate(900000, 10, 31));
+      expect(r.toCollectPaise, p.totalDuesPaise, reason: 'preview matches settlement');
+    });
+
+    test('backdated checkout cancels later invoices and returns money paid on them', () async {
+      final id = await newTenant(deposit: 0);
+      await db.billingDao.generateMonthlyInvoices(2026, 12);
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 1800000, method: PaymentMethod.cash, date: DateTime(2026, 12, 2)),
+      );
+      // Tenant actually left on 30 Nov; December was billed and paid by mistake.
+      final p = await db.billingDao.previewCheckout(id, DateTime(2026, 11, 30));
+      final r = await db.billingDao.checkout(id, DateTime(2026, 11, 30));
+      final dec = (await invoices(id)).last;
+      expect(dec.status, InvoiceStatus.cancelled);
+      expect(r.refundPaise, 900000, reason: 'December rent paid is refunded');
+      expect(r.refundPaise, p.settlementPaise);
+      expect(r.toCollectPaise, 0);
+    });
+
+    test('a tenant who never had a bed is not charged rent at checkout', () async {
+      final id = await db.tenantsDao.createTenant(
+        TenantInput(
+          fullName: 'Farhan Ali',
+          phone: '9876500005',
+          gender: Gender.male,
+          joiningDate: DateTime(2026, 11, 1),
+          monthlyRentPaise: 900000,
+          rentDueDay: 5,
+          securityDepositPaise: 300000,
+        ),
+      );
+      final r = await db.billingDao.checkout(id, DateTime(2026, 11, 25));
+      expect(r.toCollectPaise, 0);
+      expect(r.refundPaise, 300000);
+      expect(await invoices(id), isEmpty);
+    });
+
+    test('reversing a payment lets remaining advance credit cover the dues', () async {
+      final id = await newTenant(advance: 900000); // advance pays November
+      await db.billingDao.generateMonthlyInvoices(2026, 12);
+      final p = await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 900000, method: PaymentMethod.cash, date: DateTime(2026, 12, 2)),
+      );
+      // Extra payment that becomes credit, then the December payment is reversed.
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 900000, method: PaymentMethod.cash, date: DateTime(2026, 12, 3)),
+      );
+      expect(await db.billingDao.tenantCredit(id), 900000);
+      await db.billingDao.reversePayment(p, 'Entered twice');
+      expect(await db.billingDao.tenantOutstanding(id), 0, reason: 'credit re-applied to December');
+      expect(await db.billingDao.tenantCredit(id), 0);
+    });
+
+    test('a reprinted receipt shows the balance as it was on that day', () async {
+      final id = await newTenant();
+      final p1 = await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 300000, method: PaymentMethod.cash, date: DateTime(2026, 11, 3)),
+      );
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 600000, method: PaymentMethod.cash, date: DateTime(2026, 11, 4)),
+      );
+      final r = await db.billingDao.receiptData(p1);
+      expect(r.outstandingPaise, 600000, reason: 'not today\'s zero balance');
+    });
+
+    test('dashboard collection rate compares like with like', () async {
+      final id = await newTenant(); // November billed
+      // Pays November late, in December.
+      await db.billingDao.recordPayment(
+        PaymentInput(tenantId: id, amountPaise: 900000, method: PaymentMethod.cash, date: DateTime(2026, 12, 2)),
+      );
+      final nov = await db.dashboardDao.summary(DateRange.month(2026, 11));
+      expect(nov.rentCollectedPaise, 0, reason: 'nothing received in November');
+      expect(nov.collectionRate, 1.0, reason: 'but November\'s invoice is fully paid');
+      final dec = await db.dashboardDao.summary(DateRange.month(2026, 12));
+      expect(dec.rentCollectedPaise, 900000);
+      expect(dec.collectionRate, 0, reason: 'no December invoices yet');
     });
   });
 }

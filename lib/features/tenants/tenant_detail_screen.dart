@@ -13,6 +13,7 @@ import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/form_kit.dart';
+import '../../shared/widgets/owner_pin.dart';
 import '../../shared/widgets/state_views.dart';
 import '../complaints/complaint_widgets.dart';
 import '../payments/payment_widgets.dart';
@@ -102,7 +103,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen> {
               ),
               const SizedBox(height: Gap.lg),
               switch (_tab) {
-                _Tab.billing => _Billing(tenantId: t.id),
+                _Tab.billing => _Billing(tenantId: t.id, isCurrent: d.isCurrent),
                 _Tab.stay => _Stay(detail: d),
                 _Tab.documents => _Documents(tenant: t),
                 _Tab.complaints => _Complaints(tenantId: t.id),
@@ -242,6 +243,8 @@ class _Actions extends ConsumerWidget {
       if (t.status == TenantStatus.active || t.status == TenantStatus.newTenant)
         (Icons.event_busy_outlined, 'Notice', () => showNoticeSheet(context, ref, detail)),
       if (detail.isCurrent) (Icons.logout_rounded, 'Check out', () => context.push('/tenants/${t.id}/checkout')),
+      if (!detail.isCurrent && detail.creditPaise > 0)
+        (Icons.undo_rounded, 'Refund', () => _refundCredit(context, ref)),
       (Icons.chat_outlined, 'WhatsApp', () => _whatsApp(ref)),
     ];
     return Row(
@@ -281,6 +284,28 @@ class _Actions extends ConsumerWidget {
     );
   }
 
+  Future<void> _refundCredit(BuildContext context, WidgetRef ref) async {
+    final amount = Money.format(detail.creditPaise);
+    if (!await confirmAction(
+          context,
+          title: 'Refund $amount?',
+          message: '${detail.tenant.fullName} has $amount of unused advance. Record that you paid it back in cash.',
+          confirmLabel: 'Record refund',
+        ) ||
+        !context.mounted) {
+      return;
+    }
+    if (!await requireOwnerPin(context, ref, message: 'Recording a refund changes the tenant\'s balance.') ||
+        !context.mounted) {
+      return;
+    }
+    await runGuarded(
+      context,
+      () => ref.read(databaseProvider).billingDao.refundCredit(detail.tenant.id, PaymentMethod.cash),
+      success: '$amount refund recorded',
+    );
+  }
+
   Future<void> _whatsApp(WidgetRef ref) async {
     final t = detail.tenant;
     final pg = ref.read(pgProfileProvider).value;
@@ -293,8 +318,9 @@ class _Actions extends ConsumerWidget {
 }
 
 class _Billing extends ConsumerWidget {
-  const _Billing({required this.tenantId});
+  const _Billing({required this.tenantId, required this.isCurrent});
   final int tenantId;
+  final bool isCurrent;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -305,11 +331,13 @@ class _Billing extends ConsumerWidget {
       children: [
         SectionHeader(
           title: 'Invoices',
-          trailing: TextButton.icon(
-            onPressed: () => context.push('/invoices/new?tenant=$tenantId'),
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('New'),
-          ),
+          trailing: !isCurrent
+              ? null
+              : TextButton.icon(
+                  onPressed: () => context.push('/invoices/new?tenant=$tenantId'),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('New'),
+                ),
         ),
         invoices.when(
           loading: () => const SkeletonBox(height: 120, radius: Radii.lg),

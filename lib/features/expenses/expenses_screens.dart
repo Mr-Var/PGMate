@@ -235,19 +235,14 @@ class _ExpenseTile extends ConsumerWidget {
                     icon: Icons.edit_outlined,
                     outlined: true,
                     onPressed: () async {
-                      // Expenses are never edited in place: the old entry is
-                      // voided and a corrected copy is entered.
+                      // Expenses are never edited in place: the corrected copy
+                      // replaces this one when it is saved, and this one is voided then.
                       final pinOk = await requireOwnerPin(
                         ctx,
                         ref,
-                        message: 'The current entry is voided and kept in history. You then save the corrected one.',
+                        message: 'You will enter the corrected expense. This one is voided only when you save it.',
                       );
                       if (!pinOk || !ctx.mounted) return;
-                      final ok = await runGuarded(
-                        ctx,
-                        () => ref.read(databaseProvider).opsDao.voidExpense(e.id, 'Corrected: re-entered'),
-                      );
-                      if (!ok || !ctx.mounted) return;
                       Navigator.pop(ctx);
                       if (context.mounted) context.push('/more/expenses/new?from=${e.id}');
                     },
@@ -342,22 +337,33 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         ? _existingBill
         : await ref.read(fileStoreProvider).save(_bill!.$1, folder: 'bills', extension: _bill!.$2);
     if (!mounted) return;
+    final ops = ref.read(databaseProvider).opsDao;
+    final from = widget.copyFromId;
     final ok = await runGuarded(
       context,
-      () => ref
-          .read(databaseProvider)
-          .opsDao
-          .addExpense(
-            title: _title.text,
-            category: _category!,
-            amountPaise: MoneyField.read(_amount),
-            date: _date,
-            method: _method,
-            vendor: _vendor.text,
-            billPath: path,
-            notes: _notes.text,
-          ),
-      success: 'Expense added',
+      () => from == null
+          ? ops.addExpense(
+              title: _title.text,
+              category: _category!,
+              amountPaise: MoneyField.read(_amount),
+              date: _date,
+              method: _method,
+              vendor: _vendor.text,
+              billPath: path,
+              notes: _notes.text,
+            )
+          : ops.correctExpense(
+              from,
+              title: _title.text,
+              category: _category!,
+              amountPaise: MoneyField.read(_amount),
+              date: _date,
+              method: _method,
+              vendor: _vendor.text,
+              billPath: path,
+              notes: _notes.text,
+            ),
+      success: from == null ? 'Expense added' : 'Expense corrected',
     );
     if (ok && mounted) context.pop();
   }

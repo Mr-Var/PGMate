@@ -62,6 +62,7 @@ class MoneyField extends StatelessWidget {
     this.required = true,
     this.onChanged,
     this.maxPaise,
+    this.enabled = true,
   });
 
   final TextEditingController controller;
@@ -71,11 +72,13 @@ class MoneyField extends StatelessWidget {
   final bool required;
   final ValueChanged<String>? onChanged;
   final int? maxPaise;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      enabled: enabled,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
       style: const TextStyle(fontFeatures: AppTheme.tabular),
@@ -120,12 +123,11 @@ class DateField extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(Radii.md),
       onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value,
-          firstDate: first ?? DateTime(2020),
-          lastDate: last ?? DateTime(DateTime.now().year + 2),
-        );
+        final lo = first ?? DateTime(2020);
+        final hi = last ?? DateTime(DateTime.now().year + 2);
+        // Keep the starting date inside the allowed range so the picker never asserts.
+        final initial = value.isBefore(lo) ? lo : (value.isAfter(hi) ? hi : value);
+        final picked = await showDatePicker(context: context, initialDate: initial, firstDate: lo, lastDate: hi);
         if (picked != null) onChanged(Dates.today(picked));
       },
       child: InputDecorator(
@@ -407,26 +409,29 @@ class StoredImage extends ConsumerWidget {
   }
 }
 
-/// Circle avatar with the tenant's photo or initials.
+/// Circle avatar with the tenant's photo, or initials in a stable hue.
 class PersonAvatar extends StatelessWidget {
-  const PersonAvatar({super.key, required this.name, this.photoPath, this.radius = 22, this.color = AppColors.primary});
+  const PersonAvatar({super.key, required this.name, this.photoPath, this.radius = 20, this.color});
 
   final String name;
   final String? photoPath;
   final double radius;
-  final Color color;
+
+  /// Overrides the per-name hue (e.g. red for overdue).
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final parts = name.trim().split(RegExp(r'\s+'));
     final initials = parts.take(2).map((p) => p.isEmpty ? '' : p[0].toUpperCase()).join();
+    final hue = color ?? AppColors.avatarFor(name);
     return CircleAvatar(
       radius: radius,
-      backgroundColor: color.withValues(alpha: 0.10),
+      backgroundColor: Color.alphaBlend(hue.withValues(alpha: 0.10), Colors.white),
       child: photoPath == null
           ? Text(
               initials,
-              style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: radius * 0.66),
+              style: TextStyle(color: hue, fontWeight: FontWeight.w600, fontSize: radius * 0.62, letterSpacing: 0.2),
             )
           : ClipOval(
               child: StoredImage(path: photoPath!, width: radius * 2, height: radius * 2),

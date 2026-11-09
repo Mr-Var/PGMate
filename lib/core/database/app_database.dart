@@ -56,7 +56,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Bump this and add a step in [migration] whenever the schema changes.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -65,13 +65,22 @@ class AppDatabase extends _$AppDatabase {
       await _createIntegrityRules();
     },
     onUpgrade: (m, from, to) async {
-      // Future migrations go here, e.g.
-      // if (from < 2) { await m.addColumn(tenants, tenants.newColumn); }
+      if (from < 2) {
+        // v2: frozen receipt balances; rejected UPI entries no longer block
+        // re-recording the same UTR.
+        await m.addColumn(payments, payments.balanceAfterPaise);
+        await customStatement('DROP INDEX IF EXISTS ux_payment_upi_ref');
+        await customStatement(_upiRefIndex);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  static const _upiRefIndex =
+      'CREATE UNIQUE INDEX ux_payment_upi_ref ON payments(upi_reference) '
+      "WHERE upi_reference IS NOT NULL AND kind = 'payment' AND status <> 'rejected'";
 
   /// Rules Drift cannot express declaratively: partial unique indexes and
   /// triggers that protect financial history.
@@ -83,9 +92,8 @@ class AppDatabase extends _$AppDatabase {
       // No duplicate invoice for the same tenant and billing month.
       "CREATE UNIQUE INDEX ux_invoice_period ON rent_invoices(tenant_id, period_year, period_month) "
           "WHERE status <> 'cancelled'",
-      // A UPI reference (UTR) can only be recorded once.
-      'CREATE UNIQUE INDEX ux_payment_upi_ref ON payments(upi_reference) '
-          "WHERE upi_reference IS NOT NULL AND kind = 'payment'",
+      // A UPI reference (UTR) can only be recorded once (rejected entries excepted).
+      _upiRefIndex,
       // Financial records are never hard-deleted.
       "CREATE TRIGGER trg_no_delete_payments BEFORE DELETE ON payments "
           "BEGIN SELECT RAISE(ABORT, 'Payments cannot be deleted; record a reversal'); END",
