@@ -192,8 +192,8 @@ class _CollectionHero extends StatelessWidget {
                 builder: (_, v, _) => LinearProgressIndicator(
                   value: v,
                   minHeight: 8,
-                  backgroundColor: Colors.white.withValues(alpha: 0.16),
-                  valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+                  backgroundColor: AppColors.heroTrack,
+                  valueColor: const AlwaysStoppedAnimation(AppColors.heroProgress),
                 ),
               ),
             ),

@@ -33,7 +33,7 @@ abstract final class AppTheme {
       onPrimary: Colors.white,
       secondary: AppColors.secondary,
       onSecondary: Colors.white,
-      tertiary: AppColors.accent,
+      tertiary: AppColors.secondary,
       surface: AppColors.surface,
       onSurface: AppColors.textPrimary,
       onSurfaceVariant: AppColors.textSecondary,
