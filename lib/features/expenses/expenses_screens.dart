@@ -339,9 +339,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (!mounted) return;
     final ops = ref.read(databaseProvider).opsDao;
     final from = widget.copyFromId;
+    int? savedId;
     final ok = await runGuarded(
       context,
-      () => from == null
+      () async => savedId = await (from == null
           ? ops.addExpense(
               title: _title.text,
               category: _category!,
@@ -362,10 +363,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               vendor: _vendor.text,
               billPath: path,
               notes: _notes.text,
-            ),
-      success: from == null ? 'Expense added' : 'Expense corrected',
+            )),
     );
-    if (ok && mounted) context.pop();
+    if (!ok || !mounted) return;
+    final amount = Money.format(MoneyField.read(_amount));
+    showAppSnack(
+      context,
+      from == null ? '$amount expense saved' : 'Expense corrected',
+      actionLabel: 'Undo',
+      onAction: savedId == null ? null : () => ops.voidExpense(savedId!, 'Undone right after saving'),
+    );
+    context.pop();
   }
 
   @override

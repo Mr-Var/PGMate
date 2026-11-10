@@ -57,9 +57,9 @@ class _Body extends ConsumerWidget {
     final canReverse =
         !reversal && p.status == PaymentStatus.confirmed && !view.isReversed && p.method != PaymentMethod.deposit;
     final (statusLabel, statusColor, statusBg) = switch (p.status) {
-      _ when view.isReversed => ('Reversed', AppColors.danger, AppColors.dangerSoft),
+      _ when view.isReversed => ('Cancelled', AppColors.danger, AppColors.dangerSoft),
       PaymentStatus.confirmed => (
-        reversal ? 'Reversal' : 'Confirmed',
+        reversal ? 'Cancelled payment' : 'Confirmed',
         reversal ? AppColors.danger : AppColors.success,
         reversal ? AppColors.dangerSoft : AppColors.successSoft,
       ),
@@ -71,7 +71,7 @@ class _Body extends ConsumerWidget {
       ('Receipt', p.receiptNumber),
       ('Date', Dates.short(p.paymentDate)),
       ('Method', p.method.label),
-      if (p.upiReference != null) ('UTR', p.upiReference!),
+      if (p.upiReference != null) ('UPI no.', p.upiReference!),
       if (p.verifiedAt != null) ('Verified', Dates.short(p.verifiedAt!)),
       ('Transaction ID', p.transactionId),
       if (p.notes != null) ('Notes', p.notes!),
@@ -87,7 +87,7 @@ class _Body extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: Eyebrow(reversal ? 'Amount reversed' : 'Amount received')),
+                  Expanded(child: Eyebrow(reversal ? 'Amount cancelled' : 'Amount received')),
                   StatusPill(label: statusLabel, color: statusColor, background: statusBg),
                 ],
               ),
@@ -101,9 +101,11 @@ class _Body extends ConsumerWidget {
                 children: [
                   Icon(reversal ? Icons.undo_rounded : methodIcon(p.method), size: 16, color: AppColors.textMuted),
                   const SizedBox(width: 6),
-                  Text(
-                    '${p.method.label} · ${Dates.short(p.paymentDate)}',
-                    style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
+                  Expanded(
+                    child: Text(
+                      '${p.method.label} · ${Dates.short(p.paymentDate)}',
+                      style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
+                    ),
                   ),
                 ],
               ),
@@ -192,12 +194,12 @@ class _Body extends ConsumerWidget {
           const Divider(),
           const SizedBox(height: Gap.md),
           Text(
-            'Entered something wrong? Payments are never edited. Reverse this one and record it again.',
+            'Entered something wrong? Payments are never edited. Cancel this one and record it again.',
             style: t.bodySmall?.copyWith(color: AppColors.textMuted),
           ),
           const SizedBox(height: Gap.md),
           AsyncButton(
-            label: 'Reverse payment',
+            label: 'Cancel payment',
             icon: Icons.undo_rounded,
             outlined: true,
             danger: true,
@@ -211,15 +213,15 @@ class _Body extends ConsumerWidget {
   Future<void> _reverse(BuildContext context, WidgetRef ref, int id) async {
     final reason = await askReason(
       context,
-      title: 'Reverse this payment?',
-      hint: 'Reason for reversal',
+      title: 'Cancel this payment?',
+      hint: 'Why cancel it?',
       confirmLabel: 'Continue',
     );
     if (reason == null || !context.mounted) return;
     final auth = ref.read(authServiceProvider);
     final ok = await confirmOwnerPin(
       context,
-      message: 'Reversing a payment changes the tenant\'s balance.',
+      message: 'Cancelling a payment changes the tenant\'s balance.',
       length: AuthService.pinLength,
       verify: (pin) async => switch (await auth.verifyPin(pin)) {
         PinOk() => true,
@@ -232,7 +234,7 @@ class _Body extends ConsumerWidget {
       final revId = await ref.read(databaseProvider).billingDao.reversePayment(id, reason);
       await refreshReminders(ref.read(databaseProvider), ref.read(reminderServiceProvider));
       if (context.mounted) context.pushReplacement('/payments/$revId');
-    }, success: 'Payment reversed');
+    }, success: 'Payment cancelled');
   }
 }
 

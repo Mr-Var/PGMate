@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
@@ -82,6 +84,8 @@ class AuthService {
   static const _kFailed = 'pin_failed_attempts';
   static const _kLockedUntil = 'pin_locked_until';
   static const _kBiometric = 'biometric_enabled';
+  static const _kRecoveryHash = 'recovery_hash';
+  static const _kRecoverySalt = 'recovery_salt';
 
   Future<bool> hasPin() async => (await store.read(_kHash)) != null;
 
@@ -136,6 +140,51 @@ class AuthService {
     }
     await store.write(_kFailed, '$failed');
     return PinWrong(maxAttempts - failed);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Recovery code: written on paper at setup, resets a forgotten PIN.
+  // ---------------------------------------------------------------------------
+
+  /// Unambiguous characters only (no 0/O, 1/I/L).
+  static const _codeAlphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+  static String normalizeRecoveryCode(String raw) => raw.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+  Future<bool> hasRecoveryCode() async => (await store.read(_kRecoveryHash)) != null;
+
+  /// Creates a new recovery code (replacing any old one) and returns it for
+  /// the owner to write down. Only a salted hash is stored.
+  Future<String> createRecoveryCode() async {
+    final rnd = Random.secure();
+    final raw = List.generate(12, (_) => _codeAlphabet[rnd.nextInt(_codeAlphabet.length)]).join();
+    final salt = PinHasher.newSalt();
+    await store.write(_kRecoverySalt, salt);
+    await store.write(_kRecoveryHash, await _hash(raw, salt, iterations));
+    return '${raw.substring(0, 4)}-${raw.substring(4, 8)}-${raw.substring(8)}';
+  }
+
+  /// Replaces the PIN when the recovery code is correct. Wrong codes count
+  /// towards the same lockout as wrong PINs.
+  Future<PinCheck> resetPinWithRecoveryCode(String code, String newPin) async {
+    final until = await lockedUntil();
+    if (until != null) return PinLockedOut(until);
+    final hash = await store.read(_kRecoveryHash);
+    final salt = await store.read(_kRecoverySalt);
+    final candidate = hash == null || salt == null ? null : await _hash(normalizeRecoveryCode(code), salt, iterations);
+    if (candidate == null || !PinHasher.equals(candidate, hash!)) {
+      final failed = (int.tryParse(await store.read(_kFailed) ?? '') ?? 0) + 1;
+      if (failed >= maxAttempts) {
+        final lockUntil = DateTime.now().add(lockoutDuration);
+        await store.write(_kLockedUntil, '${lockUntil.millisecondsSinceEpoch}');
+        await store.delete(_kFailed);
+        return PinLockedOut(lockUntil);
+      }
+      await store.write(_kFailed, '$failed');
+      return PinWrong(maxAttempts - failed);
+    }
+    await setPin(newPin);
+    return const PinOk();
   }
 
   Future<bool> isBiometricEnabled() async => (await store.read(_kBiometric)) == 'true';

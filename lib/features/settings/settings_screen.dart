@@ -10,6 +10,7 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/pin_pad.dart';
 import '../../shared/widgets/state_views.dart';
 import '../authentication/auth_controller.dart';
+import '../authentication/recovery_widgets.dart';
 import 'pg_profile_form.dart';
 
 final _biometricStateProvider = FutureProvider.autoDispose<(bool available, bool enabled)>((ref) async {
@@ -66,6 +67,22 @@ class SettingsScreen extends ConsumerWidget {
                   onTap: () => _changePin(context, ref),
                 ),
                 const Divider(indent: 56),
+                ListTile(
+                  minTileHeight: 64,
+                  leading: const Icon(Icons.key_outlined, color: AppColors.primary),
+                  title: const Text('New recovery code'),
+                  subtitle: const Text('Use it if you forget your PIN'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () async {
+                    final ok = await confirmOwnerPin(
+                      context,
+                      message: 'Enter your PIN to create a new recovery code.',
+                      verify: (pin) => _verify(ref.read(authServiceProvider), pin),
+                    );
+                    if (ok && context.mounted) await regenerateRecoveryCode(context, ref);
+                  },
+                ),
+                const Divider(indent: 56),
                 bio.when(
                   loading: () => const ListTile(title: SkeletonBox(width: 160)),
                   error: (_, _) => const SizedBox.shrink(),
@@ -96,6 +113,19 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const SectionHeader(title: 'Display'),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Consumer(
+              builder: (context, ref, _) => SwitchListTile(
+                secondary: const Icon(Icons.text_increase_rounded, color: AppColors.primary),
+                title: const Text('Large text'),
+                subtitle: const Text('Bigger text and buttons on every screen'),
+                value: ref.watch(largeTextProvider).value ?? false,
+                onChanged: (v) => ref.read(databaseProvider).settingsDao.setSetting('large_text', '$v'),
+              ),
+            ),
+          ),
           const SectionHeader(title: 'Automation'),
           const AppCard(
             padding: EdgeInsets.zero,
@@ -105,7 +135,7 @@ class SettingsScreen extends ConsumerWidget {
                   keyName: 'auto_billing',
                   icon: Icons.event_repeat_rounded,
                   title: 'Bill rent automatically',
-                  subtitle: 'Creates each month\'s invoices when you open the app',
+                  subtitle: 'Creates each month\'s rent bills when you open the app',
                 ),
                 Divider(indent: 56),
                 _SettingSwitch(

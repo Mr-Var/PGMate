@@ -100,6 +100,11 @@ void main() {
     expect(find.textContaining('RENT RECEIVED'), findsOneWidget);
     expect(find.text('DUE'), findsOneWidget);
     // 3 beds from the database, 0 occupied.
+    // Occupancy sits under "Show more" on the simplified home screen.
+    await tester.scrollUntilVisible(find.textContaining('Show more'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.textContaining('Show more'));
+    await settle(tester);
     expect(find.text('0%'), findsOneWidget);
     expect(find.text('3'), findsWidgets);
 

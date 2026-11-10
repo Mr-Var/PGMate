@@ -184,4 +184,93 @@ void main() {
     await settle(tester);
     await tester.runAsync(() => db.close());
   });
+
+  testWidgets('every screen also works with large text (owner setting + big phone font)', (tester) async {
+    // Print full diagnostics (including the widget that overflowed) for any error.
+    final original = FlutterError.onError;
+    FlutterError.onError = (d) {
+      FlutterError.dumpErrorToConsole(d, forceReport: true);
+      original?.call(d);
+    };
+    addTearDown(() => FlutterError.onError = original);
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final db = AppDatabase(NativeDatabase.memory());
+    final auth = AuthService(store: MemorySecureStore(), iterations: 1000, hashInIsolate: false);
+    final ids = (await tester.runAsync(() => seed(db, auth)))!;
+    await tester.runAsync(() => db.settingsDao.setSetting('large_text', 'true'));
+    tester.platformDispatcher.textScaleFactorTestValue = 1.2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db), authServiceProvider.overrideWithValue(auth)],
+        child: const PgManagerApp(),
+      ),
+    );
+    await settle(tester);
+    for (final d in '2580'.split('')) {
+      await tester.tap(find.text(d).last);
+      await tester.pump();
+    }
+    await settle(tester);
+    expect(find.text('Sunrise PG'), findsOneWidget);
+
+    final routes = [
+      '/tenants',
+      '/tenants/${ids['tenant']}',
+      '/tenants/${ids['tenant2']}',
+      '/tenants/new',
+      '/tenants/${ids['tenant']}/edit',
+      '/tenants/${ids['tenant2']}/checkout',
+      '/rooms',
+      '/rooms/new',
+      '/payments',
+      '/payments/collect',
+      '/payments/remind',
+      '/payments/collect?tenant=${ids['tenant2']}',
+      '/payments/${ids['payment']}',
+      '/invoices/${ids['invoice']}',
+      '/invoices/new',
+      '/invoices/new?tenant=${ids['tenant']}',
+      '/more/complaints/${ids['complaint']}/edit',
+      '/more',
+      '/more/expenses',
+      '/more/expenses/new',
+      '/more/complaints',
+      '/more/complaints/new',
+      '/more/complaints/${ids['complaint']}',
+      '/more/menu',
+      '/more/notices',
+      '/more/notices/new',
+      '/more/notices/${ids['notice']}',
+      '/more/reports',
+      for (final r in ReportType.values)
+        if (r != ReportType.tenantLedger) '/more/reports/${r.name}',
+      '/more/reports/tenantLedger?tenant=${ids['tenant']}',
+      '/more/backup',
+      '/more/settings',
+      '/more/settings/profile',
+    ];
+    for (final r in routes) {
+      final ctx = tester.element(find.byType(Scaffold).first);
+      GoRouter.of(ctx).go(r);
+      await settle(tester);
+      final err = tester.takeException();
+      expect(err, isNull, reason: 'Screen $r threw');
+      expect(find.byType(ErrorWidget), findsNothing, reason: 'Screen $r showed an error widget');
+    }
+
+    // Spot-check real values reached the UI.
+    GoRouter.of(tester.element(find.byType(Scaffold).first)).go('/tenants/${ids['tenant2']}');
+    await settle(tester);
+    expect(find.text('Bala Subramanian'), findsOneWidget);
+    expect(find.text('Notice given'), findsWidgets);
+
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
+    await tester.runAsync(() => db.close());
+  });
 }

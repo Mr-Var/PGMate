@@ -209,7 +209,7 @@ class _Money extends StatelessWidget {
             icon: Icons.pending_actions_outlined,
             label: 'Dues',
             value: Money.format(detail.outstandingPaise),
-            caption: credit > 0 ? '${Money.format(credit)} advance' : 'Unpaid invoices',
+            caption: credit > 0 ? '${Money.format(credit)} advance' : 'Unpaid rent bills',
             tone: detail.outstandingPaise > 0 ? AppColors.danger : AppColors.success,
             valueColor: detail.outstandingPaise > 0 ? AppColors.danger : null,
           ),
@@ -330,7 +330,7 @@ class _Billing extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionHeader(
-          title: 'Invoices',
+          title: 'Rent bills',
           trailing: !isCurrent
               ? null
               : TextButton.icon(
@@ -343,7 +343,7 @@ class _Billing extends ConsumerWidget {
           loading: () => const SkeletonBox(height: 120, radius: Radii.lg),
           error: (e, _) => Text('$e'),
           data: (l) => l.isEmpty
-              ? const _Inline(text: 'No invoices yet. Monthly invoices are created from the Payments tab.')
+              ? const _Inline(text: 'No rent bills yet. They are created automatically each month.')
               : TileGroup(children: [for (final v in l.take(12)) InvoiceTile(view: v, showTenant: false)]),
         ),
         const SectionHeader(title: 'Payments'),

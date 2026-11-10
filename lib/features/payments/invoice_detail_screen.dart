@@ -25,7 +25,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(invoiceProvider(invoiceId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Invoice')),
+      appBar: AppBar(title: const Text('Rent bill')),
       body: data.when(
         skipLoadingOnReload: true,
         loading: () => const LoadingList(),
@@ -33,7 +33,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
         data: (d) => d == null
             ? const EmptyState(
                 icon: Icons.search_off_rounded,
-                title: 'Invoice not found',
+                title: 'Rent bill not found',
                 message: 'This record does not exist.',
               )
             : _Body(view: d.$1, payments: d.$2),
@@ -53,7 +53,7 @@ class _Body extends ConsumerWidget {
     final t = Theme.of(context).textTheme;
     final open = i.status != InvoiceStatus.cancelled;
     final lines = <(String, int)>[
-      ('Rent${i.isProrated ? ' (prorated)' : ''}', i.rentPaise),
+      ('Rent${i.isProrated ? ' (part month)' : ''}', i.rentPaise),
       if (i.additionalChargesPaise > 0) ('Additional charges', i.additionalChargesPaise),
       if (i.discountPaise > 0) ('Discount', -i.discountPaise),
     ];
@@ -167,26 +167,30 @@ class _Body extends ConsumerWidget {
         ],
         if (open && i.paidPaise == 0)
           AsyncButton(
-            label: 'Cancel invoice',
+            label: 'Cancel rent bill',
             icon: Icons.block_rounded,
             outlined: true,
             danger: true,
             onPressed: () async {
               final reason = await askReason(
                 context,
-                title: 'Cancel this invoice?',
+                title: 'Cancel this rent bill?',
                 hint: 'Reason',
-                confirmLabel: 'Cancel invoice',
+                confirmLabel: 'Cancel rent bill',
               );
               if (reason == null || !context.mounted) return;
-              if (!await requireOwnerPin(context, ref, message: 'Cancelling removes this invoice from billed rent.') ||
+              if (!await requireOwnerPin(
+                    context,
+                    ref,
+                    message: 'Cancelling removes this rent bill from billed rent.',
+                  ) ||
                   !context.mounted) {
                 return;
               }
               await runGuarded(context, () async {
                 await ref.read(databaseProvider).billingDao.cancelInvoice(i.id, reason);
                 await refreshReminders(ref.read(databaseProvider), ref.read(reminderServiceProvider));
-              }, success: 'Invoice cancelled');
+              }, success: 'Rent bill cancelled');
             },
           ),
       ],
@@ -255,7 +259,7 @@ class _Body extends ConsumerWidget {
                                 ? null
                                 : [i.notes, note.text.trim()].whereType<String>().join('\n'),
                           ),
-                      success: 'Invoice updated',
+                      success: 'Rent bill updated',
                     );
                     if (ok && ctx.mounted) Navigator.pop(ctx);
                   },

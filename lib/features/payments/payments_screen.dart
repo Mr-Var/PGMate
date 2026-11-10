@@ -34,14 +34,14 @@ class PaymentsScreen extends ConsumerWidget {
               onPressed: () => context.push('/payments/remind'),
             ),
             IconButton(
-              tooltip: 'New invoice',
+              tooltip: 'New rent bill',
               icon: const Icon(Icons.post_add_rounded),
               onPressed: () => context.push('/invoices/new'),
             ),
           ],
           bottom: TabBar(
             tabs: [
-              const Tab(text: 'Invoices'),
+              const Tab(text: 'Rent bills'),
               const Tab(text: 'Received'),
               Tab(
                 child: Badge(
@@ -127,8 +127,8 @@ class _InvoicesTab extends ConsumerWidget {
                       padding: EdgeInsets.only(top: Gap.xxl),
                       child: EmptyState(
                         icon: Icons.receipt_long_outlined,
-                        title: 'No invoices this month',
-                        message: 'Invoices appear here once tenants with beds are billed for the month.',
+                        title: 'No rent bills this month',
+                        message: 'Rent bills appear here once tenants with beds are billed for the month.',
                       ),
                     )
                   else if (list.isNotEmpty) ...[
@@ -139,7 +139,7 @@ class _InvoicesTab extends ConsumerWidget {
                             icon: Icons.receipt_long_outlined,
                             label: 'Billed',
                             value: Money.format(billed),
-                            caption: '${active.length} invoices',
+                            caption: '${active.length} rent bills',
                           ),
                         ),
                         const SizedBox(width: Gap.md),
@@ -195,12 +195,12 @@ class _GenerateCard extends ConsumerWidget {
           ),
           const SizedBox(height: Gap.xs),
           Text(
-            'Creates one invoice per tenant using their current rent. New joiners are prorated. Advance credit is applied.',
+            'Creates one rent bill per tenant using their current rent. New tenants pay only for the days they stay. Extra paid earlier is used first.',
             style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: Gap.md),
           AsyncButton(
-            label: 'Generate invoices',
+            label: 'Generate rent bills',
             icon: Icons.receipt_long_rounded,
             onPressed: () async {
               GenerateResult? r;
@@ -208,7 +208,7 @@ class _GenerateCard extends ConsumerWidget {
                 r = await ref.read(databaseProvider).billingDao.generateMonthlyInvoices(month.year, month.month);
                 await refreshReminders(ref.read(databaseProvider), ref.read(reminderServiceProvider));
               });
-              if (ok && context.mounted) showAppSnack(context, '${r!.created} invoices created');
+              if (ok && context.mounted) showAppSnack(context, '${r!.created} rent bills created');
             },
           ),
         ],
@@ -302,7 +302,7 @@ class _VerifyTab extends ConsumerWidget {
           itemBuilder: (context, i) {
             if (i == 0) {
               return Text(
-                'Open your UPI or bank app, find each UTR, then confirm. Only confirmed payments count as collected.',
+                'Open your UPI or bank app, find each transaction number, then confirm. Only confirmed payments count as collected.',
                 style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
               );
             }
@@ -320,7 +320,7 @@ class _VerifyTab extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   SelectableText(
-                    'UTR ${p.upiReference ?? '—'} · ${Dates.short(p.paymentDate)}',
+                    'UPI no. ${p.upiReference ?? '—'} · ${Dates.short(p.paymentDate)}',
                     style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: Gap.md),

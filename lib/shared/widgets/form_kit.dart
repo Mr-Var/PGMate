@@ -439,3 +439,66 @@ class PersonAvatar extends StatelessWidget {
     );
   }
 }
+
+/// Big, plain confirmation before money is saved: the amount in large
+/// digits and each detail on its own line.
+Future<bool> confirmMoney(
+  BuildContext context, {
+  required String title,
+  required int amountPaise,
+  required List<(String, String)> details,
+  String confirmLabel = 'Yes, save',
+}) async {
+  final ok = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) {
+      final t = Theme.of(ctx).textTheme;
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(title, style: t.titleLarge),
+              const SizedBox(height: Gap.md),
+              Text(Money.format(amountPaise), style: AppTheme.figure(40)),
+              const SizedBox(height: Gap.lg),
+              for (final d in details)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 96,
+                        child: Text(d.$1, style: t.bodyLarge?.copyWith(color: AppColors.textSecondary)),
+                      ),
+                      Expanded(
+                        child: Text(d.$2, style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: Gap.xl),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Change')),
+                  ),
+                  const SizedBox(width: Gap.md),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(confirmLabel)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+  return ok ?? false;
+}

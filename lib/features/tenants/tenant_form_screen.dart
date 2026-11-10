@@ -311,7 +311,9 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
                     controller: _rent,
                     label: 'Monthly rent',
                     onChanged: (_) => setState(() {}),
-                    helper: _isEdit ? 'Changes apply from the next invoice. Past invoices keep their amount.' : null,
+                    helper: _isEdit
+                        ? 'Changes apply from the next rent bill. Past rent bills keep their amount.'
+                        : null,
                   ),
                   DropdownButtonFormField<int>(
                     isExpanded: true,
@@ -342,7 +344,7 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
                       allowZero: true,
                       required: false,
                       onChanged: (_) => setState(() {}),
-                      helper: 'Recorded as a payment and used against the first invoices.',
+                      helper: 'Recorded as a payment and used against the first rent bills.',
                     ),
                     if ((Money.parseRupees(_advance.text) ?? 0) > 0) ...[
                       SegmentedButton<PaymentMethod>(
@@ -366,10 +368,11 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
                           controller: _utr,
                           textCapitalization: TextCapitalization.characters,
                           decoration: const InputDecoration(
-                            labelText: 'UPI reference (UTR)',
+                            labelText: 'UPI transaction number',
                             helperText: 'Check it in your UPI or bank app before saving.',
                           ),
-                          validator: (v) => (v ?? '').trim().length < 6 ? 'Enter the UTR from your UPI app' : null,
+                          validator: (v) =>
+                              (v ?? '').trim().length < 6 ? 'Enter the transaction number from your UPI app' : null,
                         ),
                     ],
                     if (_bedId != null)
@@ -377,7 +380,7 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
                         contentPadding: EdgeInsets.zero,
                         value: _firstInvoice,
                         onChanged: (v) => setState(() => _firstInvoice = v),
-                        title: const Text('Create this month\'s invoice'),
+                        title: const Text('Create this month\'s rent bill'),
                         subtitle: Text(
                           rentPaise == 0
                               ? 'Enter the rent to see the amount'

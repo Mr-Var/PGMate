@@ -77,7 +77,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New invoice')),
+      appBar: AppBar(title: const Text('New rent bill')),
       body: Form(
         key: _formKey,
         autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -182,7 +182,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
             AppCard(
               child: Row(
                 children: [
-                  Expanded(child: Text('Invoice total', style: t.titleSmall)),
+                  Expanded(child: Text('Rent bill total', style: t.titleSmall)),
                   Text(
                     Money.format(total < 0 ? 0 : total),
                     style: t.titleLarge?.copyWith(
@@ -195,7 +195,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
             ),
             const SizedBox(height: Gap.xl),
             AsyncButton(
-              label: 'Create invoice',
+              label: 'Create rent bill',
               icon: Icons.receipt_long_rounded,
               onPressed: () async {
                 if (!_formKey.currentState!.validate()) return;
@@ -216,7 +216,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
                         prorated: _prorate && joinedThisMonth,
                       );
                   await refreshReminders(ref.read(databaseProvider), ref.read(reminderServiceProvider));
-                }, success: 'Invoice created');
+                }, success: 'Rent bill created');
                 if (ok && context.mounted) context.pushReplacement('/invoices/$id');
               },
             ),

@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/pin_pad.dart';
 import 'auth_controller.dart';
+import 'recovery_widgets.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({super.key});
@@ -135,6 +136,16 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                         onCompleted: _onPin,
                       ),
                     ),
+                  ),
+                  const SizedBox(height: Gap.lg),
+                  TextButton(
+                    style: TextButton.styleFrom(foregroundColor: Colors.white.withValues(alpha: 0.85)),
+                    onPressed: () async {
+                      if (await showForgotPin(context, ref)) {
+                        ref.read(authControllerProvider.notifier).completeOnboarding();
+                      }
+                    },
+                    child: const Text('Forgot PIN?'),
                   ),
                 ],
               ),

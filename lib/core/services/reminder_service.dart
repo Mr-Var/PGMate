@@ -15,6 +15,21 @@ class ReminderService {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
 
+  /// Opens a screen when a notification is tapped (set by the app).
+  void Function(String route)? onOpen;
+
+  /// A screen to open once the owner unlocks the app.
+  String? pendingRoute;
+
+  void _open(String? route) {
+    if (route == null || route.isEmpty) return;
+    if (onOpen != null) {
+      onOpen!(route);
+    } else {
+      pendingRoute = route;
+    }
+  }
+
   static const _channel = AndroidNotificationDetails(
     'rent_due',
     'Rent reminders',
@@ -31,7 +46,11 @@ class ReminderService {
       tz.setLocalLocation(tz.getLocation(local.identifier));
       await _plugin.initialize(
         settings: const InitializationSettings(android: AndroidInitializationSettings('@drawable/ic_stat_notify')),
+        onDidReceiveNotificationResponse: (r) => _open(r.payload),
       );
+      // App started by tapping a notification: open that screen after unlock.
+      final launch = await _plugin.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp ?? false) pendingRoute = launch!.notificationResponse?.payload;
       _ready = true;
     } catch (e) {
       debugPrint('Reminders unavailable: $e');
@@ -46,6 +65,9 @@ class ReminderService {
   }
 
   /// Replaces all scheduled reminders. Call after billing changes.
+  /// Replaces all scheduled notifications. One notification per due day
+  /// ("3 tenants owe ₹25,500 today") that opens the reminders screen, plus a
+  /// backup nudge when the last backup is a week old.
   Future<int> reschedule(AppDatabase db, {bool enabled = true, int hour = 9}) async {
     if (!await _init()) return 0;
     await _plugin.cancelAll();
@@ -53,29 +75,47 @@ class ReminderService {
     final today = Dates.today();
     final rows = await db
         .customSelect(
-          '''SELECT i.id, i.due_date, i.total_paise - i.paid_paise AS bal, t.full_name
-         FROM rent_invoices i JOIN tenants t ON t.id = i.tenant_id
-         WHERE i.status <> 'cancelled' AND i.total_paise > i.paid_paise
-           AND i.due_date >= ? AND i.due_date < ?
-         ORDER BY i.due_date LIMIT 60''',
+          '''SELECT i.due_date AS d, COUNT(DISTINCT i.tenant_id) AS n, SUM(i.total_paise - i.paid_paise) AS bal
+             FROM rent_invoices i
+             WHERE i.status <> 'cancelled' AND i.total_paise > i.paid_paise
+               AND i.due_date >= ? AND i.due_date < ?
+             GROUP BY i.due_date ORDER BY i.due_date LIMIT 40''',
           variables: [Variable.withDateTime(today), Variable.withDateTime(today.add(const Duration(days: 31)))],
         )
         .get();
-    var n = 0;
+    var count = 0;
+    final now = tz.TZDateTime.now(tz.local);
     for (final r in rows) {
-      final due = DateTime.fromMillisecondsSinceEpoch(r.read<int>('due_date') * 1000);
+      final due = DateTime.fromMillisecondsSinceEpoch(r.read<int>('d') * 1000);
       final at = tz.TZDateTime(tz.local, due.year, due.month, due.day, hour);
-      if (at.isBefore(tz.TZDateTime.now(tz.local))) continue;
+      if (at.isBefore(now)) continue;
+      final n = r.read<int>('n');
       await _plugin.zonedSchedule(
-        id: r.read<int>('id'),
+        id: due.year * 10000 + due.month * 100 + due.day,
         title: 'Rent due today',
-        body: '${r.read<String>('full_name')} · ${Money.format(r.read<int>('bal'))}',
+        body:
+            '$n ${n == 1 ? 'tenant owes' : 'tenants owe'} ${Money.format(r.read<int>('bal'))}. Tap to send reminders.',
         scheduledDate: at,
         notificationDetails: const NotificationDetails(android: _channel),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: '/payments/remind',
       );
-      n++;
+      count++;
     }
-    return n;
+    // Backup nudge seven days after the last backup (or tomorrow if never).
+    final last = DateTime.tryParse(await db.settingsDao.getSetting('last_backup_at') ?? '');
+    final nudgeDay = last == null ? today.add(const Duration(days: 1)) : Dates.today(last).add(const Duration(days: 7));
+    var nudge = tz.TZDateTime(tz.local, nudgeDay.year, nudgeDay.month, nudgeDay.day, 10);
+    if (nudge.isBefore(now)) nudge = tz.TZDateTime(tz.local, today.year, today.month, today.day + 1, 10);
+    await _plugin.zonedSchedule(
+      id: 1,
+      title: 'Back up your PG data',
+      body: 'Keep a copy in Google Drive so nothing is lost if the phone is. Tap to back up.',
+      scheduledDate: nudge,
+      notificationDetails: const NotificationDetails(android: _channel),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: '/more/backup',
+    );
+    return count + 1;
   }
 }

@@ -50,4 +50,29 @@ void main() {
     expect(last, isA<PinLockedOut>());
     expect(await auth.verifyPin('2580'), isA<PinLockedOut>());
   });
+
+  test('recovery code resets a forgotten PIN; wrong codes count towards lockout', () async {
+    await auth.setPin('2580');
+    final code = await auth.createRecoveryCode();
+    expect(code, matches(RegExp(r'^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$')));
+    expect(
+      store.data.values.any((v) => v.contains(code.replaceAll('-', ''))),
+      isFalse,
+      reason: 'only a hash is stored',
+    );
+
+    expect(await auth.resetPinWithRecoveryCode('AAAA-BBBB-CCCC', '4826'), isA<PinWrong>());
+    // Lower case and spaces are accepted.
+    final typed = code.toLowerCase().replaceAll('-', ' ');
+    expect(await auth.resetPinWithRecoveryCode(typed, '4826'), isA<PinOk>());
+    expect(await auth.verifyPin('4826'), isA<PinOk>());
+    expect(await auth.verifyPin('2580'), isA<PinWrong>());
+  });
+
+  test('a new recovery code replaces the old one', () async {
+    await auth.setPin('2580');
+    final old = await auth.createRecoveryCode();
+    await auth.createRecoveryCode();
+    expect(await auth.resetPinWithRecoveryCode(old, '4826'), isA<PinWrong>());
+  });
 }

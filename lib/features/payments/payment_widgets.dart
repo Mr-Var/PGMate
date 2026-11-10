@@ -36,40 +36,86 @@ class InvoiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
     final i = view.invoice;
     final cancelled = i.status == InvoiceStatus.cancelled;
-    return ListTile(
-      minTileHeight: 68,
+    return _LedgerRow(
       onTap: () => context.push('/invoices/${i.id}'),
-      title: Text(
-        showTenant ? view.tenantName : '${Dates.monthYear(i.periodStart)} rent',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(decoration: cancelled ? TextDecoration.lineThrough : null),
-      ),
-      subtitle: Text(
-        [
-          if (showTenant) Dates.monthYear(i.periodStart),
-          if (showTenant && view.roomLabel != null) view.roomLabel!,
-          'Due ${Dates.dayMonth(i.dueDate)}',
-          if (i.isProrated) 'Prorated',
-        ].join(' · '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: t.bodySmall?.copyWith(color: AppColors.textMuted),
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            cancelled || i.status == InvoiceStatus.paid ? Money.format(i.totalPaise) : Money.format(view.balancePaise),
-            style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular),
-          ),
-          const SizedBox(height: 4),
-          invoicePill(i.status),
-        ],
+      title: showTenant ? view.tenantName : '${Dates.monthYear(i.periodStart)} rent',
+      strike: cancelled,
+      subtitle: [
+        if (showTenant) Dates.monthYear(i.periodStart),
+        if (showTenant && view.roomLabel != null) view.roomLabel!,
+        'Due ${Dates.dayMonth(i.dueDate)}',
+        if (i.isProrated) 'Part month',
+      ].join(' · '),
+      amount: cancelled || i.status == InvoiceStatus.paid
+          ? Money.format(i.totalPaise)
+          : Money.format(view.balancePaise),
+      tag: invoicePill(i.status),
+    );
+  }
+}
+
+/// Flexible row for money lists: grows with large text instead of clipping.
+class _LedgerRow extends StatelessWidget {
+  const _LedgerRow({
+    required this.onTap,
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    this.leading,
+    this.tag,
+    this.strike = false,
+    this.amountColor,
+  });
+
+  final VoidCallback onTap;
+  final String title;
+  final String subtitle;
+  final String amount;
+  final Widget? leading;
+  final Widget? tag;
+  final bool strike;
+  final Color? amountColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
+        child: Row(
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: Gap.lg)],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      decoration: strike ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+                  ),
+                  if (tag != null) ...[const SizedBox(height: 6), tag!],
+                ],
+              ),
+            ),
+            const SizedBox(width: Gap.md),
+            Text(amount, style: AppTheme.figure(15, color: amountColor)),
+          ],
+        ),
       ),
     );
   }
@@ -82,57 +128,39 @@ class PaymentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
     final p = view.payment;
     final reversal = p.kind == PaymentKind.reversal;
     final pending = p.status == PaymentStatus.pendingVerification;
     final rejected = p.status == PaymentStatus.rejected;
     final color = reversal ? AppColors.danger : (rejected ? AppColors.textMuted : AppColors.success);
-    return ListTile(
-      minTileHeight: 68,
+    return _LedgerRow(
       onTap: () => context.push('/payments/${p.id}'),
       leading: CircleAvatar(
-        radius: 20,
+        radius: 18,
         backgroundColor: color.withValues(alpha: 0.10),
-        child: Icon(reversal ? Icons.undo_rounded : methodIcon(p.method), size: 20, color: color),
+        child: Icon(reversal ? Icons.undo_rounded : methodIcon(p.method), size: 18, color: color),
       ),
-      title: Text(
-        showTenant ? view.tenantName : p.receiptNumber,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(decoration: rejected || view.isReversed ? TextDecoration.lineThrough : null),
-      ),
-      subtitle: Text(
-        [
-          if (showTenant) p.receiptNumber,
-          reversal ? 'Reversal' : p.method.label,
-          Dates.dayMonth(p.paymentDate),
-        ].join(' · '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: t.bodySmall?.copyWith(color: AppColors.textMuted),
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            '${p.amountPaise < 0 ? '−' : ''}${Money.format(p.amountPaise.abs())}',
-            style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular, color: rejected ? AppColors.textMuted : null),
-          ),
-          if (pending)
-            const StatusPill(
-              label: 'Verify',
+      title: showTenant ? view.tenantName : p.receiptNumber,
+      strike: rejected || view.isReversed,
+      subtitle: [
+        if (showTenant) p.receiptNumber,
+        reversal ? 'Cancelled payment' : p.method.label,
+        Dates.dayMonth(p.paymentDate),
+      ].join(' · '),
+      amount: '${p.amountPaise < 0 ? '−' : ''}${Money.format(p.amountPaise.abs())}',
+      amountColor: rejected ? AppColors.textMuted : null,
+      tag: pending
+          ? const StatusPill(
+              label: 'Check bank app',
               color: AppColors.warning,
               background: AppColors.warningSoft,
               icon: Icons.hourglass_top_rounded,
             )
-          else if (rejected)
-            const StatusPill(label: 'Rejected', color: AppColors.textSecondary, background: AppColors.neutralSoft)
-          else if (view.isReversed)
-            const StatusPill(label: 'Reversed', color: AppColors.danger, background: AppColors.dangerSoft),
-        ],
-      ),
+          : rejected
+          ? const StatusPill(label: 'Not received', color: AppColors.textSecondary, background: AppColors.neutralSoft)
+          : view.isReversed
+          ? const StatusPill(label: 'Cancelled', color: AppColors.danger, background: AppColors.dangerSoft)
+          : null,
     );
   }
 }

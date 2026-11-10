@@ -9,6 +9,7 @@ import '../../shared/widgets/pin_pad.dart';
 import '../../shared/widgets/state_views.dart';
 import '../settings/pg_profile_form.dart';
 import 'auth_controller.dart';
+import 'recovery_widgets.dart';
 
 enum _Step { profile, createPin, confirmPin, biometric }
 
@@ -78,6 +79,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
     setState(() => _busy = true);
     await auth.setPin(pin);
+    final code = await auth.createRecoveryCode();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await showRecoveryCode(context, ref, code);
     final canBio = await auth.canUseBiometrics();
     if (!mounted) return;
     setState(() {

@@ -13,6 +13,8 @@ import '../../core/utils/money.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/form_kit.dart';
 import '../../shared/widgets/state_views.dart';
+import '../authentication/recovery_widgets.dart';
+import '../backup/backup_screen.dart';
 import '../payments/payments_providers.dart';
 import 'dashboard_providers.dart';
 import 'period_picker.dart';
@@ -20,6 +22,16 @@ import 'period_picker.dart';
 final _missingInvoicesProvider = StreamProvider<int>(
   (ref) => ref.watch(databaseProvider).billingDao.watchMissingInvoiceCount(),
 );
+
+final _lastBackupProvider = StreamProvider<DateTime?>(
+  (ref) => ref
+      .watch(databaseProvider)
+      .settingsDao
+      .watchSetting('last_backup_at')
+      .map((v) => v == null ? null : DateTime.tryParse(v)),
+);
+
+final _hasRecoveryProvider = FutureProvider<bool>((ref) => ref.watch(authServiceProvider).hasRecoveryCode());
 
 final _trendProvider = FutureProvider<List<(DateTime, int, int)>>((ref) {
   ref.watch(dashboardSummaryProvider); // refresh with the dashboard
@@ -84,23 +96,55 @@ class DashboardScreen extends ConsumerWidget {
         _SetupCard(onAddRoom: () => context.push('/rooms/new')),
         const SizedBox(height: Gap.lg),
       ],
-      _LedgerCard(summary: s),
-      const SizedBox(height: Gap.md),
       const _QuickActions(),
+      const SizedBox(height: Gap.lg),
+      _LedgerCard(summary: s),
       _Attention(summary: s),
-      const SectionHeader(title: 'Occupancy'),
-      _OccupancyCard(summary: s, onTap: () => context.go('/rooms')),
-      const SectionHeader(title: 'Last 6 months'),
-      const _TrendCard(),
       SectionHeader(title: 'Due today', count: s.dueToday.length),
       _PeopleList(items: s.dueToday, emptyText: 'No rent is due today.', overdue: false),
       SectionHeader(title: 'Overdue', count: s.overdue.length),
       _PeopleList(items: s.overdue, emptyText: 'Nobody is overdue.', overdue: true),
-      SectionHeader(title: 'Leaving soon', count: s.upcomingCheckouts.length),
-      _CheckoutList(items: s.upcomingCheckouts),
-      const SectionHeader(title: 'Recent activity'),
-      _RecentList(items: s.recent),
+      _MoreDetails(summary: s),
     ];
+  }
+}
+
+/// Occupancy, trends and history, folded away so the home screen stays short.
+class _MoreDetails extends StatefulWidget {
+  const _MoreDetails({required this.summary});
+  final DashboardSummary summary;
+
+  @override
+  State<_MoreDetails> createState() => _MoreDetailsState();
+}
+
+class _MoreDetailsState extends State<_MoreDetails> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.summary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: Gap.xl),
+        OutlinedButton.icon(
+          onPressed: () => setState(() => _open = !_open),
+          icon: Icon(_open ? Icons.expand_less_rounded : Icons.expand_more_rounded),
+          label: Text(_open ? 'Show less' : 'Show more details'),
+        ),
+        if (_open) ...[
+          const SectionHeader(title: 'Occupancy'),
+          _OccupancyCard(summary: s, onTap: () => context.go('/rooms')),
+          const SectionHeader(title: 'Last 6 months'),
+          const _TrendCard(),
+          SectionHeader(title: 'Leaving soon', count: s.upcomingCheckouts.length),
+          _CheckoutList(items: s.upcomingCheckouts),
+          const SectionHeader(title: 'Recent activity'),
+          _RecentList(items: s.recent),
+        ],
+      ],
+    );
   }
 }
 
@@ -173,7 +217,7 @@ class _LedgerCard extends StatelessWidget {
       label:
           'Received ${Money.format(s.rentCollectedPaise)} in ${s.range.label}. '
           '${Money.format(s.billedPaidPaise)} of ${Money.format(s.rentBilledPaise)} billed is paid. '
-          'Outstanding ${Money.format(s.outstandingPaise)}. Expenses ${Money.format(s.expensesPaise)}.',
+          'Due ${Money.format(s.outstandingPaise)}. Expenses ${Money.format(s.expensesPaise)}.',
       excludeSemantics: true,
       child: Card(
         child: Column(
@@ -282,48 +326,70 @@ class _Figure extends StatelessWidget {
   }
 }
 
+/// Four large, clearly labelled buttons: the jobs done most often.
 class _QuickActions extends StatelessWidget {
   const _QuickActions();
 
   @override
   Widget build(BuildContext context) {
-    const actions = [
-      (Icons.person_add_alt_outlined, 'Add tenant', '/tenants/new'),
-      (Icons.payments_outlined, 'Collect', '/payments/collect'),
-      (Icons.receipt_long_outlined, 'Expense', '/more/expenses/new'),
-      (Icons.campaign_outlined, 'Remind', '/payments/remind'),
-    ];
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            for (final (i, a) in actions.indexed) ...[
-              if (i > 0) const VerticalDivider(width: 1),
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  label: a.$2,
-                  excludeSemantics: true,
-                  child: InkWell(
-                    onTap: () => context.push(a.$3),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: Gap.md + 2),
-                      child: Column(
-                        children: [
-                          Icon(a.$1, color: AppColors.primary, size: 22),
-                          const SizedBox(height: 6),
-                          Text(a.$2, style: Theme.of(context).textTheme.labelMedium, maxLines: 1),
-                        ],
-                      ),
+    Widget tile(IconData icon, String label, String route, {bool primary = false}) => Expanded(
+      child: Material(
+        color: primary ? AppColors.primary : AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.lg),
+          side: primary ? BorderSide.none : const BorderSide(color: AppColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push(route),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.lg),
+            child: Row(
+              children: [
+                Icon(icon, size: 26, color: primary ? Colors.white : AppColors.primary),
+                const SizedBox(width: Gap.md),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                      color: primary ? Colors.white : AppColors.textPrimary,
                     ),
                   ),
                 ),
-              ),
-            ],
-          ],
+              ],
+            ),
+          ),
         ),
       ),
+    );
+    return Column(
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              tile(Icons.payments_outlined, 'Collect rent', '/payments/collect', primary: true),
+              const SizedBox(width: Gap.md),
+              tile(Icons.campaign_outlined, 'Remind tenants', '/payments/remind'),
+            ],
+          ),
+        ),
+        const SizedBox(height: Gap.md),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              tile(Icons.person_add_alt_outlined, 'Add tenant', '/tenants/new'),
+              const SizedBox(width: Gap.md),
+              tile(Icons.receipt_long_outlined, 'Add expense', '/more/expenses/new'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -338,7 +404,33 @@ class _Attention extends ConsumerWidget {
     final s = summary;
     final missing = ref.watch(_missingInvoicesProvider).value ?? 0;
     final overdueTotal = s.overdue.fold<int>(0, (a, d) => a + d.balancePaise);
+    final lastBackup = ref.watch(_lastBackupProvider);
+    final hasRecovery = ref.watch(_hasRecoveryProvider).value ?? true;
+    final backupDays = lastBackup.value == null ? null : DateTime.now().difference(lastBackup.value!).inDays;
+    final needsBackup = lastBackup.hasValue && s.totalTenants > 0 && (backupDays == null || backupDays >= 7);
     final rows = <(IconData, Color, String, String, VoidCallback)>[
+      if (needsBackup)
+        (
+          Icons.cloud_upload_outlined,
+          AppColors.warning,
+          backupDays == null ? 'Back up your data' : 'Last backup $backupDays days ago',
+          'Tap to save a copy to Google Drive',
+          () async {
+            await quickBackup(context, ref);
+            ref.invalidate(_lastBackupProvider);
+          },
+        ),
+      if (!hasRecovery)
+        (
+          Icons.key_outlined,
+          AppColors.warning,
+          'Create a PIN recovery code',
+          'Needed if you ever forget your PIN',
+          () async {
+            await regenerateRecoveryCode(context, ref);
+            ref.invalidate(_hasRecoveryProvider);
+          },
+        ),
       if (s.pendingUpiCount > 3)
         (
           Icons.hourglass_top_rounded,
@@ -414,8 +506,8 @@ class _Attention extends ConsumerWidget {
       context,
       title: 'Create $count ${count == 1 ? 'invoice' : 'invoices'}?',
       message:
-          'Bills every month a tenant has had a bed but no invoice, up to this month. '
-          'The first month is charged from the day the bed was assigned. Advance credit is applied.',
+          'Bills every month a tenant has had a bed but no rent bill, up to this month. '
+          'The first month is charged from the day the bed was assigned. Extra paid earlier is used first.',
       confirmLabel: 'Create',
     );
     if (!ok || !context.mounted) return;
@@ -456,7 +548,7 @@ class _UpiRow extends ConsumerWidget {
                     style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular),
                   ),
                   Text(
-                    'UTR ${p.upiReference ?? '—'} · check your bank app',
+                    'UPI no. ${p.upiReference ?? '—'} · check your bank app',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: t.bodySmall?.copyWith(color: AppColors.textMuted),

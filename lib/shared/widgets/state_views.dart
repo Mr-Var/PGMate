@@ -147,11 +147,13 @@ class StatusPill extends StatelessWidget {
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
           const SizedBox(width: 5),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: color, height: 1.2),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: color, height: 1.2),
+            ),
           ),
         ],
       ),
@@ -159,11 +161,21 @@ class StatusPill extends StatelessWidget {
   }
 }
 
-void showAppSnack(BuildContext context, String message, {bool error = false}) {
+void showAppSnack(
+  BuildContext context,
+  String message, {
+  bool error = false,
+  String? actionLabel,
+  VoidCallback? onAction,
+}) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
+        duration: Duration(seconds: onAction != null ? 10 : 4),
+        action: onAction == null
+            ? null
+            : SnackBarAction(label: actionLabel ?? 'Undo', textColor: const Color(0xFF9DB8FF), onPressed: onAction),
         content: Row(
           children: [
             Icon(

@@ -193,7 +193,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       final p = snap.data;
                       if (p == null) return const SkeletonBox(height: 260, radius: Radii.lg);
                       final rows = <(String, int, String?)>[
-                        ('Unpaid invoices', p.outstandingPaise, null),
+                        ('Unpaid rent bills', p.outstandingPaise, null),
                         if (p.unbilledPaise > 0)
                           ('Earlier months not yet billed', p.unbilledPaise, 'Billed automatically at checkout'),
                         (
@@ -203,7 +203,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               '${p.finalMonthInvoiced > 0 ? ', invoiced ${Money.format(p.finalMonthInvoiced)}' : ''}',
                         ),
                         if (p.deductionsPaise > 0) ('Deductions', p.deductionsPaise, null),
-                        ('Advance credit', -p.creditPaise, null),
+                        ('Extra paid (advance)', -p.creditPaise, null),
                         ('Security deposit', -p.depositPaise, null),
                       ];
                       return Column(

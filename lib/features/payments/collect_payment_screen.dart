@@ -92,6 +92,30 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
       if (!go) return;
     }
     if (!mounted) return;
+    final invoices = ref.read(tenantInvoicesProvider(_tenantId!)).value ?? const <InvoiceView>[];
+    final target = invoices.where((v) => v.invoice.id == _invoiceId).firstOrNull;
+    final openMonths =
+        (invoices.where((v) => v.balancePaise > 0).toList()
+              ..sort((a, b) => a.invoice.periodStart.compareTo(b.invoice.periodStart)))
+            .map((v) => Dates.monthYear(v.invoice.periodStart))
+            .toList();
+    final sure = await confirmMoney(
+      context,
+      title: 'Save this payment?',
+      amountPaise: amount,
+      details: [
+        ('From', tenantName),
+        ('Paid by', _method == PaymentMethod.cash ? 'Cash' : 'UPI · ${_utr.text.trim()}'),
+        (
+          'For',
+          target != null
+              ? '${Dates.monthYear(target.invoice.periodStart)} rent'
+              : (openMonths.isEmpty ? 'Advance (no rent due now)' : openMonths.take(3).join(', ')),
+        ),
+        ('Date', Dates.short(_date)),
+      ],
+    );
+    if (!sure || !mounted) return;
     int? id;
     final ok = await runGuarded(context, () async {
       id = await dao.recordPayment(
@@ -210,7 +234,7 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: Gap.lg),
                     child: Text(
-                      'No open invoices. This payment will be kept as advance credit for the next invoice.',
+                      'No open rent bills. This payment will be kept as extra paid (advance) for the next rent bill.',
                       style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
                     ),
                   ),
@@ -220,7 +244,7 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
                   label: 'Amount received',
                   onChanged: (_) => setState(() => _amountTouched = true),
                   helper: amountPaise > totalDue && totalDue > 0
-                      ? '${Money.format(amountPaise - totalDue)} extra will be kept as advance credit.'
+                      ? '${Money.format(amountPaise - totalDue)} extra will be kept as advance for next month.'
                       : null,
                 ),
                 const SizedBox(height: Gap.lg),
@@ -261,11 +285,12 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
                     controller: _utr,
                     textCapitalization: TextCapitalization.characters,
                     decoration: const InputDecoration(
-                      labelText: 'UPI reference (UTR)',
+                      labelText: 'UPI transaction number',
                       hintText: '12-digit number from the UPI app',
                       prefixIcon: Icon(Icons.tag_rounded),
                     ),
-                    validator: (v) => (v ?? '').trim().length < 6 ? 'Enter the UTR shown in the payment details' : null,
+                    validator: (v) =>
+                        (v ?? '').trim().length < 6 ? 'Enter the transaction number shown in the UPI app' : null,
                   ),
                   const SizedBox(height: Gap.sm),
                   CheckboxListTile(

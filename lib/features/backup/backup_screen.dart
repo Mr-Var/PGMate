@@ -67,7 +67,7 @@ class BackupScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Includes every tenant, payment, invoice, expense and all photos and documents. '
+                  'Includes every tenant, payment, rent bill, expense and all photos and documents. '
                   'The file is encrypted with a password you choose.',
                   style: t.bodyMedium?.copyWith(color: AppColors.textSecondary),
                 ),
@@ -110,12 +110,13 @@ class BackupScreen extends ConsumerWidget {
     );
   }
 
-  Future<String?> _askPassword(BuildContext context, {required bool confirm}) {
+  Future<(String, bool)?> _askPassword(BuildContext context, {required bool confirm}) {
     final a = TextEditingController();
     final b = TextEditingController();
     final key = GlobalKey<FormState>();
     var hide = true;
-    return showDialog<String>(
+    var remember = true;
+    return showDialog<(String, bool)>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
@@ -157,6 +158,13 @@ class BackupScreen extends ConsumerWidget {
                     decoration: const InputDecoration(labelText: 'Repeat password'),
                     validator: (v) => v != a.text ? 'Passwords do not match' : null,
                   ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: remember,
+                    onChanged: (v) => setState(() => remember = v ?? true),
+                    title: const Text('Remember on this phone for one-tap backups'),
+                  ),
                 ],
               ],
             ),
@@ -166,7 +174,7 @@ class BackupScreen extends ConsumerWidget {
             FilledButton(
               style: FilledButton.styleFrom(minimumSize: const Size(64, 44)),
               onPressed: () {
-                if (key.currentState!.validate()) Navigator.pop(ctx, a.text);
+                if (key.currentState!.validate()) Navigator.pop(ctx, (a.text, remember));
               },
               child: const Text('Continue'),
             ),
@@ -176,60 +184,27 @@ class BackupScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _create(BuildContext context, WidgetRef ref) async {
-    final password = await _askPassword(context, confirm: true);
-    if (password == null || !context.mounted) return;
-    final db = ref.read(databaseProvider);
-    final (bytes, manifest) = await ref.read(backupServiceProvider).create(db, password);
-    final name = BackupService.fileName(manifest.createdAt);
-    if (!context.mounted) return;
-    final where = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.sm),
-              child: Text(
-                'Backup ready · ${(bytes.length / 1024).toStringAsFixed(0)} KB · ${manifest.tenants} tenants',
-                style: Theme.of(ctx).textTheme.titleMedium,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.save_alt_rounded),
-              title: const Text('Save to phone'),
-              onTap: () => Navigator.pop(ctx, 'save'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.ios_share_rounded),
-              title: const Text('Share (Drive, email, WhatsApp)'),
-              onTap: () => Navigator.pop(ctx, 'share'),
-            ),
-            const SizedBox(height: Gap.sm),
-          ],
-        ),
-      ),
-    );
-    if (where == 'save') {
-      final uri = await FilePicker.saveFile(fileName: name, bytes: bytes);
-      if (context.mounted) {
-        showAppSnack(context, uri == null ? 'Not saved' : 'Backup saved as $name', error: uri == null);
-      }
-    } else if (where == 'share') {
-      final f = await ref.read(exportServiceProvider).writeTemp(name, bytes);
-      await ref
-          .read(exportServiceProvider)
-          .shareFile(f, mime: 'application/octet-stream', text: 'PG Manager backup ${Dates.short(manifest.createdAt)}');
-    }
-  }
+  Future<void> _create(BuildContext context, WidgetRef ref) => quickBackup(context, ref, askPassword: _askPassword);
 
   Future<void> _restore(BuildContext context, WidgetRef ref) async {
     final files = await FilePicker.pickFiles(type: FileType.any);
     if (files.isEmpty || !context.mounted) return;
     final bytes = await files.first.readAsBytes();
     if (!context.mounted) return;
-    final password = await _askPassword(context, confirm: false);
+    final saved = await ref.read(secureStoreProvider).read(backupPasswordKey);
+    if (!context.mounted) return;
+    String? password = saved;
+    if (password != null) {
+      try {
+        await ref
+            .read(backupServiceProvider)
+            .validate(bytes, password, currentSchemaVersion: ref.read(databaseProvider).schemaVersion);
+      } on RuleException {
+        password = null; // a different password was used for this file
+      }
+    }
+    if (!context.mounted) return;
+    password ??= (await _askPassword(context, confirm: false))?.$1;
     if (password == null || !context.mounted) return;
 
     final db = ref.read(databaseProvider);
@@ -273,5 +248,68 @@ class BackupScreen extends ConsumerWidget {
     final fresh = ref.read(databaseProvider);
     await fresh.settingsDao.log('backup', null, 'restore', m.createdAt.toIso8601String());
     if (context.mounted) showAppSnack(context, 'Restored ${m.tenants} tenants from ${Dates.short(m.createdAt)}');
+  }
+}
+
+const backupPasswordKey = 'backup_password';
+
+typedef PasswordAsker = Future<(String, bool)?> Function(BuildContext context, {required bool confirm});
+
+/// One-tap backup: uses the remembered password (or asks once), builds the
+/// encrypted backup and lets the owner save or share it.
+Future<void> quickBackup(BuildContext context, WidgetRef ref, {PasswordAsker? askPassword}) async {
+  final store = ref.read(secureStoreProvider);
+  var password = await store.read(backupPasswordKey);
+  if (!context.mounted) return;
+  if (password == null) {
+    final asked = await (askPassword ?? const BackupScreen()._askPassword)(context, confirm: true);
+    if (asked == null || !context.mounted) return;
+    password = asked.$1;
+    if (asked.$2) await store.write(backupPasswordKey, password);
+  }
+  if (!context.mounted) return;
+  final db = ref.read(databaseProvider);
+  final (bytes, manifest) = await ref.read(backupServiceProvider).create(db, password);
+  final name = BackupService.fileName(manifest.createdAt);
+  if (!context.mounted) return;
+  final where = await showModalBottomSheet<String>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.sm),
+            child: Text(
+              'Backup ready · ${manifest.tenants} tenants. Where should it go?',
+              style: Theme.of(ctx).textTheme.titleMedium,
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.add_to_drive_rounded),
+            title: const Text('Google Drive, email or WhatsApp'),
+            subtitle: const Text('Safest: keeps a copy off this phone'),
+            onTap: () => Navigator.pop(ctx, 'share'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.save_alt_rounded),
+            title: const Text('Save to this phone'),
+            onTap: () => Navigator.pop(ctx, 'save'),
+          ),
+          const SizedBox(height: Gap.sm),
+        ],
+      ),
+    ),
+  );
+  if (where == 'save') {
+    final uri = await FilePicker.saveFile(fileName: name, bytes: bytes);
+    if (context.mounted) {
+      showAppSnack(context, uri == null ? 'Not saved' : 'Backup saved as $name', error: uri == null);
+    }
+  } else if (where == 'share') {
+    final f = await ref.read(exportServiceProvider).writeTemp(name, bytes);
+    await ref
+        .read(exportServiceProvider)
+        .shareFile(f, mime: 'application/octet-stream', text: 'PG Manager backup ${Dates.short(manifest.createdAt)}');
   }
 }

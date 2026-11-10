@@ -41,3 +41,8 @@ Future<void> refreshReminders(AppDatabase db, ReminderService reminders) async {
   final enabled = (await db.settingsDao.getSetting('reminders_enabled')) != 'false';
   await reminders.reschedule(db, enabled: enabled);
 }
+
+/// Large text mode for owners who prefer bigger text (off by default).
+final largeTextProvider = StreamProvider<bool>(
+  (ref) => ref.watch(databaseProvider).settingsDao.watchSetting('large_text').map((v) => v == 'true'),
+);
