@@ -543,4 +543,49 @@ void main() {
       expect(dec.collectionRate, 0, reason: 'no December invoices yet');
     });
   });
+
+  group('Fewer-taps changes', () {
+    test('transfer mid-month splits this month by days at old and new rent', () async {
+      final ids = await beds();
+      final id = await newTenant(bed: ids[0], joining: DateTime(2026, 10, 1)); // Oct + Nov billed
+      await db.tenantsDao.transfer(id, ids[1], DateTime(2026, 11, 16), newRentPaise: 1200000);
+      final nov = (await invoices(id)).last;
+      expect(nov.periodMonth, 11);
+      expect(nov.rentPaise, BillingMath.prorate(900000, 15, 30) + BillingMath.prorate(1200000, 15, 30));
+    });
+
+    test('payment date before joining is refused', () async {
+      final id = await newTenant(joining: DateTime(2026, 11, 10));
+      expect(
+        () => db.billingDao.recordPayment(
+          PaymentInput(tenantId: id, amountPaise: 100, method: PaymentMethod.cash, date: DateTime(2026, 11, 1)),
+        ),
+        throwsA(isA<RuleException>()),
+      );
+    });
+
+    test('UTR must be letters and digits', () async {
+      final id = await newTenant();
+      expect(
+        () => db.billingDao.recordPayment(
+          PaymentInput(
+            tenantId: id,
+            amountPaise: 100,
+            method: PaymentMethod.upi,
+            date: DateTime(2026, 11, 3),
+            upiReference: 'paid!!',
+          ),
+        ),
+        throwsA(isA<RuleException>()),
+      );
+    });
+
+    test('auto billing catches up every current tenant to this month', () async {
+      final id = await newTenant(joining: DateTime(2026, 9, 1));
+      final n = await db.billingDao.generateAllMissing(now: DateTime(2027, 1, 5));
+      expect(n, 2, reason: 'December and January');
+      expect((await invoices(id)).map((i) => i.periodMonth), [9, 10, 11, 12, 1]);
+      expect(await db.billingDao.generateAllMissing(now: DateTime(2027, 1, 5)), 0, reason: 'safe to repeat');
+    });
+  });
 }

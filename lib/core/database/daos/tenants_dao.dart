@@ -257,6 +257,7 @@ class TenantsDao extends DatabaseAccessor<AppDatabase> with _$TenantsDaoMixin {
         await (update(tenants)..where((x) => x.id.equals(tenantId))).write(
           TenantsCompanion(monthlyRentPaise: Value(newRentPaise), updatedAt: Value(DateTime.now())),
         );
+        await db.billingDao.splitRentForTransfer(tenantId, date, t.monthlyRentPaise, newRentPaise);
       }
       await db.settingsDao.log(
         'tenant',

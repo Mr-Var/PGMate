@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/database/daos/billing_dao.dart';
 import '../../core/database/daos/dashboard_dao.dart';
 import '../../core/services/providers.dart';
 import '../../core/theme/app_colors.dart';
@@ -12,6 +13,7 @@ import '../../core/utils/money.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/form_kit.dart';
 import '../../shared/widgets/state_views.dart';
+import '../payments/payments_providers.dart';
 import 'dashboard_providers.dart';
 import 'period_picker.dart';
 
@@ -337,12 +339,12 @@ class _Attention extends ConsumerWidget {
     final missing = ref.watch(_missingInvoicesProvider).value ?? 0;
     final overdueTotal = s.overdue.fold<int>(0, (a, d) => a + d.balancePaise);
     final rows = <(IconData, Color, String, String, VoidCallback)>[
-      if (s.pendingUpiCount > 0)
+      if (s.pendingUpiCount > 3)
         (
           Icons.hourglass_top_rounded,
           AppColors.warning,
-          '${s.pendingUpiCount} UPI ${s.pendingUpiCount == 1 ? 'payment' : 'payments'} to verify',
-          'Not counted until you confirm them',
+          '${s.pendingUpiCount - 3} more UPI payments to verify',
+          'Open the Verify tab in Payments',
           () => context.go('/payments'),
         ),
       if (missing > 0)
@@ -362,7 +364,8 @@ class _Attention extends ConsumerWidget {
           () => context.push('/payments/remind'),
         ),
     ];
-    if (rows.isEmpty) return const SizedBox.shrink();
+    final pending = ref.watch(pendingUpiProvider).value ?? const <PaymentView>[];
+    if (rows.isEmpty && pending.isEmpty) return const SizedBox.shrink();
     final t = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -372,6 +375,8 @@ class _Attention extends ConsumerWidget {
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
+              for (final (i, v) in pending.take(3).indexed) ...[if (i > 0) const Divider(indent: 52), _UpiRow(view: v)],
+              if (pending.isNotEmpty && rows.isNotEmpty) const Divider(indent: 52),
               for (final (i, r) in rows.indexed) ...[
                 if (i > 0) const Divider(indent: 52),
                 InkWell(
@@ -420,6 +425,58 @@ class _Attention extends ConsumerWidget {
       await refreshReminders(db, ref.read(reminderServiceProvider));
       if (context.mounted) showAppSnack(context, '$n ${n == 1 ? 'invoice' : 'invoices'} created');
     });
+  }
+}
+
+/// A UPI payment awaiting confirmation, confirmable in one tap.
+class _UpiRow extends ConsumerWidget {
+  const _UpiRow({required this.view});
+  final PaymentView view;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = view.payment;
+    final t = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: () => context.push('/payments/${p.id}'),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.sm, Gap.sm),
+        child: Row(
+          children: [
+            const Icon(Icons.hourglass_top_rounded, size: 20, color: AppColors.warning),
+            const SizedBox(width: Gap.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${Money.format(p.amountPaise)} UPI · ${view.tenantName.split(' ').first}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.titleSmall?.copyWith(fontFeatures: AppTheme.tabular),
+                  ),
+                  Text(
+                    'UTR ${p.upiReference ?? '—'} · check your bank app',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.bodySmall?.copyWith(color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => runGuarded(context, () async {
+                final db = ref.read(databaseProvider);
+                await db.billingDao.verifyUpiPayment(p.id);
+                await refreshReminders(db, ref.read(reminderServiceProvider));
+              }, success: '${Money.format(p.amountPaise)} confirmed'),
+              icon: const Icon(Icons.check_rounded, size: 18),
+              label: const Text('Received'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -676,14 +733,33 @@ class _PeopleList extends StatelessWidget {
               onTap: () => context.push('/tenants/${d.tenantId}'),
               leading: PersonAvatar(name: d.tenantName),
               title: Text(d.tenantName, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(
-                [
-                  d.roomLabel,
-                  overdue ? 'due ${Dates.relativeDays(d.dueDate).toLowerCase()}' : null,
-                ].whereType<String>().join(' · '),
-                style: TextStyle(color: overdue ? AppColors.danger : AppColors.textMuted),
+              subtitle: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: Money.format(d.balancePaise),
+                      style: AppTheme.figure(12.5, color: overdue ? AppColors.danger : AppColors.textPrimary),
+                    ),
+                    TextSpan(
+                      text:
+                          ' · ${[d.roomLabel, overdue ? Dates.relativeDays(d.dueDate).toLowerCase() : null].whereType<String>().join(' · ')}',
+                    ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: AppColors.textMuted),
               ),
-              trailing: Text(Money.format(d.balancePaise), style: AppTheme.figure(14.5)),
+              trailing: FilledButton.tonal(
+                onPressed: () => context.push('/payments/collect?tenant=${d.tenantId}'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  backgroundColor: AppColors.accentSoft,
+                  foregroundColor: AppColors.primary,
+                ),
+                child: const Text('Collect'),
+              ),
             ),
           ],
         ],

@@ -509,6 +509,35 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
   /// UTRs are compared without case, spaces or dashes.
   static String? normalizeUtr(String? raw) => raw?.toUpperCase().replaceAll(RegExp(r'[\s-]'), '');
 
+  /// When a tenant moves to a bed with a different rent mid-month, this
+  /// month's invoice is set to old rent for the days before the move and new
+  /// rent from the move day. Charges and discounts are kept.
+  Future<void> splitRentForTransfer(int tenantId, DateTime moveDate, int oldRentPaise, int newRentPaise) async {
+    final d = Dates.today(moveDate);
+    final inv = await invoiceFor(tenantId, d.year, d.month);
+    final start = await billingStart(tenantId);
+    if (inv == null || start == null || oldRentPaise == newRentPaise || d.day == 1) return;
+    // Only for months fully at the old rent before the move.
+    if (!start.isBefore(DateTime(d.year, d.month))) return;
+    final dim = BillingMath.daysInMonth(d.year, d.month);
+    final rent =
+        BillingMath.prorate(oldRentPaise, d.day - 1, dim) + BillingMath.prorate(newRentPaise, dim - d.day + 1, dim);
+    final total = max(0, rent + inv.additionalChargesPaise - inv.discountPaise);
+    if (total < inv.paidPaise) await _releaseFromInvoice(inv.id, inv.paidPaise - total);
+    await (update(rentInvoices)..where((i) => i.id.equals(inv.id))).write(
+      RentInvoicesCompanion(
+        rentPaise: Value(rent),
+        totalPaise: Value(total),
+        notes: Value(
+          [inv.notes, 'Bed changed on ${Dates.short(d)}: rent split by days'].whereType<String>().join('\n'),
+        ),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    await _recompute(inv.id);
+    await applyCredit(tenantId);
+  }
+
   /// Freezes the tenant's balance on a payment row once it counts, so a
   /// reprinted receipt always shows the balance of that day.
   Future<void> _freezeBalance(int paymentId, int tenantId) async {
@@ -524,10 +553,19 @@ class BillingDao extends DatabaseAccessor<AppDatabase> with _$BillingDaoMixin {
   /// allocated immediately; unverified UPI waits for the owner's confirmation.
   Future<int> recordPayment(PaymentInput input) {
     if (input.amountPaise <= 0) throw RuleException('Amount must be more than ₹0.');
-    if (input.method == PaymentMethod.upi && (input.upiReference == null || input.upiReference!.trim().length < 6)) {
-      throw RuleException('Enter the UPI transaction reference (UTR).');
+    if (input.method == PaymentMethod.upi &&
+        !RegExp(r'^[A-Z0-9]{6,30}$').hasMatch(normalizeUtr(input.upiReference) ?? '')) {
+      throw RuleException(
+        'Enter the UPI reference (UTR) exactly as shown in the payment details: letters and digits only.',
+      );
     }
     return transaction(() async {
+      final tenant = await (select(tenants)..where((t) => t.id.equals(input.tenantId))).getSingle();
+      if (Dates.today(input.date).isBefore(Dates.today(tenant.joiningDate))) {
+        throw RuleException(
+          'Payment date cannot be before ${tenant.fullName.split(' ').first} joined (${Dates.short(tenant.joiningDate)}).',
+        );
+      }
       final utr = normalizeUtr(input.upiReference);
       if (utr != null && utr.isNotEmpty) {
         final dup =

@@ -35,6 +35,10 @@ class _PgManagerAppState extends ConsumerState<PgManagerApp> {
   Future<void> _upkeep() async {
     try {
       final db = ref.read(databaseProvider);
+      // Bill every month that is due (including this one) without asking.
+      if ((await db.settingsDao.getSetting('auto_billing')) != 'false') {
+        await db.billingDao.generateAllMissing();
+      }
       await db.billingDao.refreshOverdue();
       await refreshReminders(db, ref.read(reminderServiceProvider));
     } catch (e) {

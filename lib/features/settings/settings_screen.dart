@@ -96,6 +96,27 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const SectionHeader(title: 'Automation'),
+          const AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingSwitch(
+                  keyName: 'auto_billing',
+                  icon: Icons.event_repeat_rounded,
+                  title: 'Bill rent automatically',
+                  subtitle: 'Creates each month\'s invoices when you open the app',
+                ),
+                Divider(indent: 56),
+                _SettingSwitch(
+                  keyName: 'auto_receipt',
+                  icon: Icons.send_rounded,
+                  title: 'Send receipts on WhatsApp',
+                  subtitle: 'Opens the tenant\'s chat with the receipt after each payment',
+                ),
+              ],
+            ),
+          ),
           const SectionHeader(title: 'Reminders'),
           AppCard(
             padding: EdgeInsets.zero,
@@ -237,6 +258,31 @@ class EditProfileScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+final _settingProvider = StreamProvider.family<bool, String>(
+  (ref, key) => ref.watch(databaseProvider).settingsDao.watchSetting(key).map((v) => v != 'false'),
+);
+
+/// On/off app setting stored in app_settings (missing means on).
+class _SettingSwitch extends ConsumerWidget {
+  const _SettingSwitch({required this.keyName, required this.icon, required this.title, required this.subtitle});
+  final String keyName;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(_settingProvider(keyName)).value ?? true;
+    return SwitchListTile(
+      secondary: Icon(icon, color: AppColors.primary),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      value: on,
+      onChanged: (v) => ref.read(databaseProvider).settingsDao.setSetting(keyName, '$v'),
     );
   }
 }

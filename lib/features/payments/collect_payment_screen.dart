@@ -109,13 +109,22 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
       await refreshReminders(ref.read(databaseProvider), ref.read(reminderServiceProvider));
     });
     if (!ok || !mounted) return;
+    final counted = !(_method == PaymentMethod.upi && !_verified);
     showAppSnack(
       context,
-      _method == PaymentMethod.upi && !_verified
-          ? 'Saved. Verify it in the Payments tab once the money arrives.'
-          : '${Money.format(amount)} received from $tenantName',
+      counted
+          ? '${Money.format(amount)} received from $tenantName'
+          : 'Saved. Verify it in the Payments tab once the money arrives.',
     );
+    final db = ref.read(databaseProvider);
+    final autoSend = (await db.settingsDao.getSetting('auto_receipt')) != 'false';
+    if (!mounted) return;
     context.pushReplacement('/payments/$id');
+    if (counted && autoSend) {
+      // Opens the tenant's WhatsApp chat with the receipt attached.
+      final r = await db.billingDao.receiptData(id!);
+      await ref.read(exportServiceProvider).sendReceiptToTenant(r);
+    }
   }
 
   @override
@@ -227,6 +236,7 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
                 DateField(
                   label: 'Payment date',
                   value: _date,
+                  first: detail.tenant.joiningDate,
                   last: Dates.today(),
                   onChanged: (d) => setState(() => _date = d),
                 ),

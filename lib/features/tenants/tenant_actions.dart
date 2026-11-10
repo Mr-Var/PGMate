@@ -109,7 +109,7 @@ class _BedSheetState extends ConsumerState<_BedSheet> {
                 MoneyField(
                   controller: _rent,
                   label: 'Monthly rent after transfer',
-                  helper: 'Applies from the next invoice.',
+                  helper: 'This month is split by days at the old and new rent.',
                 ),
               ],
               const SizedBox(height: Gap.xl),
