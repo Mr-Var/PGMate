@@ -502,3 +502,20 @@ Future<bool> confirmMoney(
   );
   return ok ?? false;
 }
+
+/// Scrolling form body that keeps every field built. A lazy ListView drops
+/// off-screen fields, and Form.validate() then silently skips them.
+class FormScroll extends StatelessWidget {
+  const FormScroll({super.key, this.padding = EdgeInsets.zero, required this.children});
+
+  final EdgeInsetsGeometry padding;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: padding,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+    );
+  }
+}

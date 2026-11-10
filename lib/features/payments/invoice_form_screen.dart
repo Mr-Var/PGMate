@@ -59,19 +59,23 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
     final t = Theme.of(context).textTheme;
     final tenants = ref.watch(currentTenantsProvider).value ?? const [];
     final tenant = tenants.where((x) => x.tenant.id == _tenantId).firstOrNull?.tenant;
-    final joinedThisMonth =
-        tenant != null && tenant.joiningDate.year == _month.year && tenant.joiningDate.month == _month.month;
+    // Rent starts on the day the bed was assigned (same rule as automatic billing).
+    final start = _tenantId == null ? null : ref.watch(billingStartProvider(_tenantId!)).value;
+    final startDate = start ?? tenant?.joiningDate;
+    final joinedThisMonth = startDate != null && startDate.year == _month.year && startDate.month == _month.month;
     final due =
         _due ??
-        (tenant == null ? null : BillingMath.dueDate(_month.year, _month.month, tenant.rentDueDay, tenant.joiningDate));
+        (tenant == null || startDate == null
+            ? null
+            : BillingMath.dueDate(_month.year, _month.month, tenant.rentDueDay, startDate));
     final rentPaise = Money.parseRupees(_rent.text) ?? 0;
     final total = rentPaise + (Money.parseRupees(_extra.text) ?? 0) - (Money.parseRupees(_discount.text) ?? 0);
 
     void fillRent(Tenant? t) {
       if (t == null) return;
-      final joined = t.joiningDate.year == _month.year && t.joiningDate.month == _month.month;
-      final r = _prorate && joined
-          ? BillingMath.joiningMonthRent(t.monthlyRentPaise, t.joiningDate)
+      final s0 = (t.id == _tenantId ? startDate : null) ?? t.joiningDate;
+      final r = _prorate
+          ? BillingMath.rentForMonth(t.monthlyRentPaise, s0, _month.year, _month.month)
           : t.monthlyRentPaise;
       _rent.text = Money.toInput(r);
     }
@@ -81,7 +85,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
       body: Form(
         key: _formKey,
         autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: ListView(
+        child: FormScroll(
           padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
           children: [
             FormSection(
@@ -138,8 +142,8 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     value: _prorate,
-                    title: const Text('Prorate from joining date'),
-                    subtitle: Text('Joined ${Dates.short(tenant.joiningDate)}'),
+                    title: const Text('Charge only from the day rent started'),
+                    subtitle: Text('Rent started ${Dates.short(startDate)}'),
                     onChanged: (v) => setState(() {
                       _prorate = v;
                       fillRent(tenant);

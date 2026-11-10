@@ -35,7 +35,7 @@ jobs:
         run: flutter analyze
 
       - name: Test
-        run: flutter test test/core test/widget test/audit_fields test/audit_money
+        run: flutter test test/core test/widget test/audit_fields test/audit_money test/qa
 
       - name: Load signing key
         env:

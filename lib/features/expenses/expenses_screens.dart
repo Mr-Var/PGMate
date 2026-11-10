@@ -382,7 +382,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       appBar: AppBar(title: Text(widget.copyFromId == null ? 'Add expense' : 'Corrected expense')),
       body: Form(
         key: _formKey,
-        child: ListView(
+        child: FormScroll(
           padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
           children: [
             FormSection(

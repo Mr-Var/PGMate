@@ -180,7 +180,7 @@ class _TenantFormState extends ConsumerState<_TenantForm> {
         child: Form(
           key: _formKey,
           autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: ListView(
+          child: FormScroll(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
             children: [
               Center(

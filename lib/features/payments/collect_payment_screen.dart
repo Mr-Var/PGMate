@@ -145,9 +145,15 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
     if (!mounted) return;
     context.pushReplacement('/payments/$id');
     if (counted && autoSend) {
-      // Opens the tenant's WhatsApp chat with the receipt attached.
-      final r = await db.billingDao.receiptData(id!);
-      await ref.read(exportServiceProvider).sendReceiptToTenant(r);
+      // Opens the tenant's WhatsApp chat with the receipt attached. The
+      // payment is already saved, so a sharing problem must not surface as
+      // a failure here; the receipt can be sent again from the payment.
+      try {
+        final r = await db.billingDao.receiptData(id!);
+        await ref.read(exportServiceProvider).sendReceiptToTenant(r);
+      } catch (e) {
+        debugPrint('Auto receipt not sent: $e');
+      }
     }
   }
 
@@ -172,7 +178,7 @@ class _CollectPaymentScreenState extends ConsumerState<CollectPaymentScreen> {
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: FormScroll(
             padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
             children: [
               AppCard(

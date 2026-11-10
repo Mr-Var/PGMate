@@ -177,7 +177,7 @@ class _NoticeFormScreenState extends ConsumerState<NoticeFormScreen> {
       ),
       body: Form(
         key: _formKey,
-        child: ListView(
+        child: FormScroll(
           padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
           children: [
             Wrap(

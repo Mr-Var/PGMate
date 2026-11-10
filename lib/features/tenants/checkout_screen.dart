@@ -146,7 +146,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           : Form(
               key: _formKey,
               autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: ListView(
+              child: FormScroll(
                 padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
                 children: [
                   Text(name, style: t.headlineSmall),

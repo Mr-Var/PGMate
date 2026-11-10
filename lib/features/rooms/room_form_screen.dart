@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../shared/widgets/pin_pad.dart';
+import '../../shared/widgets/form_kit.dart';
 import '../../shared/widgets/state_views.dart';
 import '../../shared/widgets/validators.dart';
 import 'rooms_providers.dart';
@@ -183,7 +184,7 @@ class _RoomFormState extends ConsumerState<_RoomForm> {
         child: Form(
           key: _formKey,
           autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: ListView(
+          child: FormScroll(
             padding: const EdgeInsets.all(Gap.lg),
             children: [
               DropdownButtonFormField<int>(

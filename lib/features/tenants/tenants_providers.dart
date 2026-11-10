@@ -52,3 +52,8 @@ final tenantComplaintsProvider = StreamProvider.family<List<ComplaintView>, int>
 final freeBedsProvider = FutureProvider.autoDispose<List<FreeBed>>(
   (ref) => ref.watch(databaseProvider).tenantsDao.freeBeds(),
 );
+
+/// Day rent started for a tenant (first bed assignment); null if never.
+final billingStartProvider = FutureProvider.family<DateTime?, int>(
+  (ref, id) => ref.watch(databaseProvider).billingDao.billingStart(id),
+);
